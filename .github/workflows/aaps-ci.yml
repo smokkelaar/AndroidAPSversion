@@ -4,11 +4,12 @@ on:
   workflow_dispatch:
     inputs:
       tagName:
-        description: 'Select AAPS Version'
+        description: 'Select AAPS Version (dev-c is a pinned development snapshot)'
         required: true
-        default: '3.3.2.1'
+        default: '3.4.2.6'
         type: choice
         options:
+          - 4.0.0-dev-c
           # ── 3.4.x (JDK 21) ──────────────────────────────
           - 3.4.2.6
           - 3.4.2.4
@@ -38,7 +39,7 @@ on:
 jobs:
   build:
     name: Build AAPS
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - name: Decode Secrets Keystore Set and Oauth2 to Env
         env:
@@ -190,11 +191,21 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Fetch selected tag from upstream
+      - name: Fetch selected version from upstream
+        env:
+          SELECTED_VERSION: ${{ inputs.tagName }}
         run: |
-          git remote add upstream https://github.com/nightscout/AndroidAPS.git || true
-          git fetch upstream refs/tags/${{ github.event.inputs.tagName }}:refs/tags/${{ github.event.inputs.tagName }}
-          echo "✅ Tag ${{ github.event.inputs.tagName }} fetched from upstream."
+          git remote add upstream https://github.com/nightscout/AndroidAPS.git
+          if [ "$SELECTED_VERSION" = "4.0.0-dev-c" ]; then
+            # Pin the requested dev-c snapshot rather than following a moving branch.
+            SOURCE_REF="6deea754463b8df40251a765c4d12a289200cde3"
+          else
+            SOURCE_REF="refs/tags/$SELECTED_VERSION"
+          fi
+          git fetch upstream "$SOURCE_REF"
+          SOURCE_COMMIT=$(git rev-parse 'FETCH_HEAD^{commit}')
+          echo "SOURCE_COMMIT=$SOURCE_COMMIT" >> "$GITHUB_ENV"
+          echo "Selected $SELECTED_VERSION at upstream commit $SOURCE_COMMIT"
 
       - name: Determine JVM version from tag
         run: |
@@ -211,10 +222,17 @@ jobs:
           echo "JAVA_VERSION=$JAVA_VERSION" >> $GITHUB_ENV
           echo "ℹ️ Tag $TAG → JDK $JAVA_VERSION (from jdk-map.json)"
 
-      - name: Switch to selected tag
+      - name: Switch to selected version
+        env:
+          SELECTED_VERSION: ${{ inputs.tagName }}
         run: |
-          git checkout refs/tags/${{ github.event.inputs.tagName }}
-          echo "✅ Checked out tag ${{ github.event.inputs.tagName }}"
+          git checkout --detach "$SOURCE_COMMIT"
+          ACTUAL_VERSION=$(sed -n 's/.*const val appVersion = "\([^"]*\)".*/\1/p' buildSrc/src/main/kotlin/Versions.kt)
+          if [ "$ACTUAL_VERSION" != "$SELECTED_VERSION" ]; then
+            echo "Selected version does not match source version: $ACTUAL_VERSION"
+            exit 1
+          fi
+          echo "Verified source version: $ACTUAL_VERSION"
 
       - name: Set BUILD_VARIANT
         run: |
@@ -253,9 +271,9 @@ jobs:
       - name: Build APKs
         run: |
               ./gradlew :app:assemble${{ env.BUILD_VARIANT }} :wear:assemble${{ env.BUILD_VARIANT }} \
-              -Dorg.gradle.jvmargs="-Xmx5g -XX:+UseParallelGC -Xss1024m" \
+              -Dorg.gradle.jvmargs="-Xmx5g -XX:+UseParallelGC -Xss4m" \
               -Dkotlin.daemon.jvm.options="-Xmx1g" \
-              -Dkotlin.compiler.execution.strategy="in-process" \
+              -Pkotlin.compiler.execution.strategy="in-process" \
               -Dorg.gradle.daemon=true \
               -Dorg.gradle.workers.max=2 \
               -Dorg.gradle.caching=true \
