@@ -6,7 +6,7 @@ on:
       tagName:
         description: 'Select AAPS Version'
         required: true
-        default: '3.4.2.6'
+        default: '3.3.2.1'
         type: choice
         options:
           # ── 3.4.x (JDK 21) ──────────────────────────────
@@ -20,29 +20,6 @@ on:
           - 3.4.0.0
           # ── 3.3.x (JDK 21) ──────────────────────────────
           - 3.3.2.1
-          - 3.3.2.0
-          - 3.3.1.3
-          # ── 3.2.x (JDK 17) ──────────────────────────────
-          - 3.2.0.4
-          - 3.2.0.3
-          - 3.2.0.2
-          - 3.2.0.1
-          - 3.2.0.0
-          # ── 3.1.x (JDK 17) ──────────────────────────────
-          - 3.1.0.3
-          - 3.1.0.2
-          - 3.1.0.1
-          - 3.1.0
-          # ── 3.0.x (JDK 11) ──────────────────────────────
-          - 3.0.0.2
-          - 3.0.0.1
-          - 3.0.0
-          # ── 2.x (build not supported) ────────────────────
-          # ⚠️  2.x versions depend on packages such as
-          #     com.google.android:flexbox that were only published
-          #     on JCenter. JCenter shut down in 2022 and these
-          #     dependencies can no longer be resolved, causing
-          #     the build to fail.
       buildVariant:
         description: 'Select Build Variant'
         required: true
@@ -64,10 +41,17 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Decode Secrets Keystore Set and Oauth2 to Env
+        env:
+          SECRET_KEYSTORE_SET: ${{ secrets.KEYSTORE_SET }}
+          SECRET_KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+          SECRET_KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          SECRET_KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          SECRET_KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+          SECRET_GDRIVE_OAUTH2: ${{ secrets.GDRIVE_OAUTH2 }}
         run: |
-          if [ -n "${{ secrets.KEYSTORE_SET }}" ]; then
+          if [ -n "$SECRET_KEYSTORE_SET" ]; then
             echo "🔐 Decoding KEYSTORE_SET..."
-            DECODED=$(echo "${{ secrets.KEYSTORE_SET }}" | base64 -d)
+            DECODED=$(printf '%s' "$SECRET_KEYSTORE_SET" | base64 -d)
 
             KEYSTORE_BASE64=$(echo "$DECODED" | cut -d'|' -f1)
             KEYSTORE_PASSWORD=$(echo "$DECODED" | cut -d'|' -f2)
@@ -87,12 +71,12 @@ jobs:
             echo "✅ Keystore parameters extracted from KEYSTORE_SET"
           else
             echo "ℹ️ KEYSTORE_SET not provided, using separate secrets."
-            echo "KEYSTORE_BASE64=${{ secrets.KEYSTORE_BASE64 }}" >> $GITHUB_ENV
-            echo "KEYSTORE_PASSWORD=${{ secrets.KEYSTORE_PASSWORD }}" >> $GITHUB_ENV
-            echo "KEY_ALIAS=${{ secrets.KEY_ALIAS }}" >> $GITHUB_ENV
-            echo "KEY_PASSWORD=${{ secrets.KEY_PASSWORD }}" >> $GITHUB_ENV
+            echo "KEYSTORE_BASE64=$SECRET_KEYSTORE_BASE64" >> $GITHUB_ENV
+            echo "KEYSTORE_PASSWORD=$SECRET_KEYSTORE_PASSWORD" >> $GITHUB_ENV
+            echo "KEY_ALIAS=$SECRET_KEY_ALIAS" >> $GITHUB_ENV
+            echo "KEY_PASSWORD=$SECRET_KEY_PASSWORD" >> $GITHUB_ENV
           fi
-          echo "GDRIVE_OAUTH2=${{ secrets.GDRIVE_OAUTH2 }}" >> $GITHUB_ENV
+          echo "GDRIVE_OAUTH2=$SECRET_GDRIVE_OAUTH2" >> $GITHUB_ENV
 
       - name: Check Secrets
         run: |
@@ -124,11 +108,10 @@ jobs:
       - name: Decode keystore file
         run: |
           mkdir -p "$RUNNER_TEMP/keystore"
-          echo "$KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/keystore/keystore.jks"
+          printf '%s' "$KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/keystore/keystore.jks"
 
       - name: Validating keystore, alias and password
         run: |
-          set -x
           echo "🔐 Validating keystore, alias and password"
 
           # Create a dummy JAR file (quick method using zip)
@@ -152,13 +135,27 @@ jobs:
           rm -f "$JARSIGNER_LOG" dummy.jar
           echo "✅ Keystore, alias, and key password are valid."
 
-          rm -f "$KEYTOOL_LOG"
           echo "✅ Keystore and credentials validated."
 
+      - name: Check signing certificate matches existing APK
+        run: |
+          keytool -exportcert -keystore "$RUNNER_TEMP/keystore/keystore.jks" \
+            -storepass:env KEYSTORE_PASSWORD -alias "$KEY_ALIAS" \
+            -file "$RUNNER_TEMP/keystore/certificate.der"
+          EXPECTED="d6bf11fc569083e33dfc07733b579e4491beaa4ac3285b80fbe73e03c2691bb8"
+          ACTUAL=$(sha256sum "$RUNNER_TEMP/keystore/certificate.der" | cut -d' ' -f1)
+          if [ "$ACTUAL" != "$EXPECTED" ]; then
+            echo "Signing certificate differs from your existing 3.3.2.1 APK. Check KEY_ALIAS and KEYSTORE_BASE64."
+            exit 1
+          fi
+          echo "Signing certificate matches your existing APK."
+
       - name: Decode GDrive OAuth2 secrets
+        env:
+          SECRET_GDRIVE_OAUTH2: ${{ secrets.GDRIVE_OAUTH2 }}
         run: |
           echo "🔐 Decoding GDRIVE_OAUTH2..."
-          DECODED=$(echo "${{ secrets.GDRIVE_OAUTH2 }}" | base64 -d)
+          DECODED=$(printf '%s' "$SECRET_GDRIVE_OAUTH2" | base64 -d)
 
           GDRIVE_CLIENT_ID=$(echo "$DECODED" | cut -d'|' -f1)
           GDRIVE_REFRESH_TOKEN=$(echo "$DECODED" | cut -d'|' -f2)
@@ -175,14 +172,14 @@ jobs:
         run: |
           echo "🔐 Getting Google OAuth2 access token..."
           TOKEN_RESPONSE=$(curl -s -X POST https://oauth2.googleapis.com/token \
-            -d client_id="$GDRIVE_CLIENT_ID" \
-            -d refresh_token="$GDRIVE_REFRESH_TOKEN" \
+            --data-urlencode client_id="$GDRIVE_CLIENT_ID" \
+            --data-urlencode refresh_token="$GDRIVE_REFRESH_TOKEN" \
             -d grant_type=refresh_token)
           ACCESS_TOKEN=$(echo "$TOKEN_RESPONSE" | jq -r .access_token)
           echo "::add-mask::$ACCESS_TOKEN"
           if [ -z "$ACCESS_TOKEN" ] || [ "$ACCESS_TOKEN" = "null" ]; then
             echo "❌ Failed to get access token."
-            echo "$TOKEN_RESPONSE"
+            echo "Check or renew the GDRIVE_OAUTH2 repository secret."
             exit 1
           fi
           echo "ACCESS_TOKEN=$ACCESS_TOKEN" >> $GITHUB_ENV
@@ -256,11 +253,11 @@ jobs:
       - name: Build APKs
         run: |
               ./gradlew :app:assemble${{ env.BUILD_VARIANT }} :wear:assemble${{ env.BUILD_VARIANT }} \
-              -Dorg.gradle.jvmargs="-Xmx8g -XX:+UseParallelGC -Xss1024m" \
-              -Dkotlin.daemon.jvm.options="-Xmx2g" \
+              -Dorg.gradle.jvmargs="-Xmx5g -XX:+UseParallelGC -Xss1024m" \
+              -Dkotlin.daemon.jvm.options="-Xmx1g" \
               -Dkotlin.compiler.execution.strategy="in-process" \
               -Dorg.gradle.daemon=true \
-              -Dorg.gradle.workers.max=8 \
+              -Dorg.gradle.workers.max=2 \
               -Dorg.gradle.caching=true \
               -Pandroid.injected.signing.store.file="$RUNNER_TEMP/keystore/keystore.jks" \
               -Pandroid.injected.signing.store.password="$KEYSTORE_PASSWORD" \
