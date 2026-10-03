@@ -57,7 +57,14 @@ jobs:
     - name: Install historical Android SDK packages when needed
       if: env.COMPILE_SDK == '28'
       # Modern SDK tools need a newer JVM than the historical Gradle build.
-      run: 'JAVA_HOME="$JAVA_HOME_17_X64" "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-28" "build-tools;29.0.2"'
+      run: |
+        PACKAGES=("platforms;android-28" "build-tools;29.0.2")
+        if [ "$VERSION" = '2.8.2.1' ]; then
+          PACKAGES+=("ndk;21.1.6352462")
+        elif [ "$VERSION" = '2.6.2' ]; then
+          PACKAGES+=("ndk;20.0.5594570")
+        fi
+        JAVA_HOME="$JAVA_HOME_17_X64" "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "${PACKAGES[@]}"
     - name: Build APKs without private signing credentials
       run: |
         chmod +x gradlew
