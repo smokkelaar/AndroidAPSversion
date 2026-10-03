@@ -6,6 +6,7 @@ concurrency:
   cancel-in-progress: false
 jobs:
   discover:
+    if: github.event_name == 'workflow_dispatch' || vars.UPSTREAM_RELEASES_ENABLED == 'true'
     runs-on: ubuntu-24.04
     outputs:
       matrix: ${{ steps.plan.outputs.matrix }}

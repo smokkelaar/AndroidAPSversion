@@ -57,6 +57,10 @@ class PlannerTests(unittest.TestCase):
         second, attempts = choose_batch(pending[1:], attempts, limit=1)
         self.assertEqual(first[0]['release_tag'], 'a')
         self.assertEqual(second[0]['release_tag'], 'b')
+        self.assertNotIn('a', attempts)
+
+    def test_empty_queue_removes_all_stale_entries(self):
+        self.assertEqual(choose_batch([], {'published': 1, 'superseded': 2}), ([], {}))
 
 
 if __name__ == '__main__':

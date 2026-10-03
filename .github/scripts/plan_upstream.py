@@ -18,7 +18,8 @@ def choose_batch(pending, attempts, limit=20):
     """Least recently attempted first; failures cannot monopolize the batch."""
     ordered = sorted(pending, key=lambda item: (attempts.get(item["release_tag"], 0), item["release_tag"]))
     batch = ordered[:limit]
-    updated = dict(attempts)
+    pending_tags = {item["release_tag"] for item in pending}
+    updated = {tag: sequence for tag, sequence in attempts.items() if tag in pending_tags}
     sequence = max(updated.values(), default=0)
     for item in batch:
         sequence += 1
@@ -112,7 +113,7 @@ def main():
     pending = plan(baseline, read_refs(refs), published)
     attempts, file_sha = load_attempts(os.environ["GITHUB_REPOSITORY"])
     batch, updated = choose_batch(pending, attempts)
-    if batch:
+    if batch or updated != attempts:
         save_attempts(os.environ["GITHUB_REPOSITORY"], updated, file_sha)
     with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output:
         output.write("matrix=" + json.dumps({"include": batch}) + "\n")

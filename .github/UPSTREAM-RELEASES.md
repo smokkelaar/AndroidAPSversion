@@ -48,6 +48,8 @@ als laatste zijn geprobeerd. De twintig langst niet geprobeerde refs worden
 geselecteerd; deze keuze wordt vóór de builds opgeslagen. Ook wanneer builds
 mislukken voordat er een conceptrelease is gemaakt, komen latere tags aan bod.
 Verwijder deze branch niet: het is de blijvende wachtrijadministratie.
+Voltooide en vervangen refs worden uit deze administratie verwijderd, zodat
+het bestand uitsluitend pogingen voor de actuele wachtrij bewaart.
 Releases worden bewaard.
 Automatische en handmatige builds markeren releases niet als GitHub's algemene Latest.
 
@@ -61,6 +63,10 @@ GitHub Actions moet ingeschakeld zijn. De bestaande `KEYSTORE_SET` of afzonderli
 `KEYSTORE_BASE64`, `KEYSTORE_PASSWORD`, `KEY_ALIAS` en `KEY_PASSWORD` secrets zijn nodig.
 `GDRIVE_OAUTH2` is niet meer nodig. Publicatie gebruikt de ingebouwde `GITHUB_TOKEN`
 met `contents: write`; een extra persoonlijk toegangstoken is niet nodig.
+De repositoryvariabele `UPSTREAM_RELEASES_ENABLED` moet de waarde `true` hebben
+voor geplande controles. Verwijderen of op `false` zetten pauzeert de planning;
+handmatige controles blijven beschikbaar. Bij reparaties blijft deze schakelaar
+uit totdat de tests en review geslaagd zijn; daarna wordt hij weer ingeschakeld.
 
 GitHub-planning kan vertraging hebben. In openbare repositories schakelt GitHub
 geplande workflows na 60 dagen zonder repositoryactiviteit uit; schakel de workflow
