@@ -1,4 +1,4 @@
-// The controller verified both AAR checksums before creating this local repository.
+// The controller verified three AAR checksums and the archived Wear POM checksum.
 allprojects {
     def verifiedRepository = repositories.maven {
             url uri(System.getenv('LEGACY_MAVEN'))
