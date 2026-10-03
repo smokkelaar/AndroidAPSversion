@@ -52,7 +52,8 @@ jobs:
         cache-dependency-path: source/**/*.gradle*
     - name: Install historical Android SDK packages when needed
       if: env.COMPILE_SDK == '28'
-      run: '"$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-28" "build-tools;29.0.2"'
+      # Modern SDK tools need a newer JVM than the historical Gradle build.
+      run: 'JAVA_HOME="$JAVA_HOME_17_X64" "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-28" "build-tools;29.0.2"'
     - name: Build APKs without private signing credentials
       run: |
         chmod +x gradlew
