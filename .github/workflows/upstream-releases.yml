@@ -1,0 +1,42 @@
+name: Upstream Releases
+
+on:
+  schedule:
+    - cron: '7,22,37,52 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: upstream-releases
+  cancel-in-progress: false
+
+jobs:
+  discover:
+    runs-on: ubuntu-24.04
+    outputs:
+      matrix: ${{ steps.plan.outputs.matrix }}
+      count: ${{ steps.plan.outputs.count }}
+    steps:
+      - uses: actions/checkout@v5
+      - name: Discover new upstream tags and branch heads
+        id: plan
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 .github/scripts/plan_upstream.py
+
+  build:
+    needs: discover
+    if: needs.discover.outputs.count != '0'
+    strategy:
+      fail-fast: false
+      max-parallel: 2
+      matrix: ${{ fromJSON(needs.discover.outputs.matrix) }}
+    uses: ./.github/workflows/build-upstream-release.yml
+    with:
+      source_sha: ${{ matrix.sha }}
+      source_ref: ${{ matrix.ref }}
+      channel: ${{ matrix.channel }}
+      release_tag: ${{ matrix.release_tag }}
+    secrets: inherit
