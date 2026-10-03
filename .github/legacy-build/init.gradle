@@ -1,14 +1,17 @@
 // The controller verified both AAR checksums before creating this local repository.
 allprojects {
     repositories {
-        maven { url uri(System.getenv('LEGACY_MAVEN')) }
-        google()
-        mavenCentral()
-        maven { url 'https://jitpack.io' }
+        maven {
+            url uri(System.getenv('LEGACY_MAVEN'))
+            content {
+                includeModule 'com.google.android', 'flexbox'
+                includeModule 'com.amulyakhare', 'com.amulyakhare.textdrawable'
+            }
+        }
     }
     // Replace Fabric's generated build identifier, while retaining its runtime SDK.
     plugins.withId('com.android.application') {
-        if (System.getenv('VERSION') == '2.6.2') {
+        if (project.path == ':app' && System.getenv('VERSION') == '2.6.2') {
             android.defaultConfig.resValue 'string', 'com.crashlytics.android.build_id',
                 '408329db-4c83-3c47-bafe-4c7971fdbc1d'
         }

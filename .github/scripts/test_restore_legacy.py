@@ -12,8 +12,10 @@ class LegacyRestorationTests(unittest.TestCase):
             verify(b'modified', expected)
 
     def test_only_audited_commits_enabled(self):
-        self.assertEqual(set(SOURCES.values()), {'2.6.2', '2.8.2.1'})
-        self.assertNotIn('972fdbfe9e40853afc09eb06f83045c95acfb53c', SOURCES)
+        self.assertEqual(SOURCES, {
+            'fb9325384e96cdf3b508468584156aa9971638da': '2.8.2.1',
+            '408329db4c833c47bafe4c7971fdbc1d5dc076ce': '2.6.2',
+        })
 
     def test_unknown_source_rejected_before_download(self):
         with patch('restore_legacy.subprocess.check_output', return_value='972fdbfe9e40853afc09eb06f83045c95acfb53c'), \
