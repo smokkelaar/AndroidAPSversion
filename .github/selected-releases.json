@@ -52,20 +52,21 @@
       "android_note": "Voor Android 9-10: de versie die de officiële AAPS-release notes voor deze Android-versie aanwijzen. Oudere versie; de ingebouwde versiecontrole blijft intact."
     },
     {
-      "channel": "legacy",
+      "channel": "legacy-restored",
       "ref": "v2.8.2.1",
       "sha": "fb9325384e96cdf3b508468584156aa9971638da",
       "release_tag": "legacy-2.8.2.1-android-8-fb9325384e96",
       "version": "2.8.2.1",
-      "android_note": "Voor Android 8: de versie die de officiële AAPS-release notes voor deze Android-versie aanwijzen. Oudere versie; de ingebouwde versiecontrole blijft intact."
+      "android_note": "Voor Android 8: de versie die de officiële AAPS-release notes voor deze Android-versie aanwijzen. Oudere versie; de ingebouwde versiecontrole blijft intact. Herstelde bouw: Flexbox 0.3.0 en TextDrawable uit vastgelegde oorspronkelijke bronrepositories via JitPack, met gecontroleerde SHA-256-bestanden. Zie .github/legacy-build/README.md in de buildcontroller."
     },
     {
-      "channel": "legacy",
-      "ref": "2.6.2",
-      "sha": "972fdbfe9e40853afc09eb06f83045c95acfb53c",
-      "release_tag": "legacy-2.6.2-android-7-972fdbfe9e40",
+      "channel": "legacy-restored",
+      "ref": "compat-2.6.2",
+      "sha": "408329db4c833c47bafe4c7971fdbc1d5dc076ce",
+      "release_tag": "legacy-2.6.2-android-7-408329db4c83",
       "version": "2.6.2",
-      "android_note": "Voor Android 7: de versie die de officiële AAPS-release notes voor deze Android-versie aanwijzen. Oudere versie; de ingebouwde versiecontrole blijft intact."
+      "android_note": "Voor Android 7: de versie die de officiële AAPS-release notes voor deze Android-versie aanwijzen. Oudere versie; de ingebouwde versiecontrole blijft intact. Herstelde bronvariant van upstream-tag 2.6.2 (972fdbfe9e40853afc09eb06f83045c95acfb53c): alleen drie Fabric-buildpluginregels verwijderd. Runtime-SDK behouden; de oude Fabric-rapportagedienst is beëindigd. UI-bibliotheken hersteld uit vastgelegde oorspronkelijke bronrepositories met SHA-256-controle. Zie .github/legacy-build/README.md in de buildcontroller.",
+      "source_repository": "smokkelaar/AndroidAPSversion"
     }
   ]
 }

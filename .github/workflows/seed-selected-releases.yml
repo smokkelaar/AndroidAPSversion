@@ -37,6 +37,7 @@ jobs:
       matrix: ${{ fromJSON(needs.selection.outputs.matrix) }}
     uses: ./.github/workflows/build-upstream-release.yml
     with:
+      source_repository: ${{ matrix.source_repository || 'nightscout/AndroidAPS' }}
       source_sha: ${{ matrix.sha }}
       source_ref: ${{ matrix.ref }}
       channel: ${{ matrix.channel }}
