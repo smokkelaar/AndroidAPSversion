@@ -49,19 +49,26 @@ bijbehorende workflow en ondertekening zijn geslaagd.
 
 ## Resultaat van de historische bouwcontrole
 
-In de [bouwcontrole van 3 oktober 2026](https://github.com/smokkelaar/AndroidAPSversion/actions/runs/37113752338)
-is **3.2.0.4 voor Android 9–10** succesvol gebouwd, ondertekend en gepubliceerd.
-**3.3.2.1 voor Android 11** is eveneens beschikbaar in GitHub Releases.
+De eerste [bouwcontrole van 3 oktober 2026](https://github.com/smokkelaar/AndroidAPSversion/actions/runs/37113752338)
+liep voor Android 7 en 8 vast op verdwenen buildplugins en bibliotheken.
+De herstelroute staat beschreven in [legacy-build/README.md](legacy-build/README.md),
+inclusief broncommits, controlesommen en de volledige Gradle-patch voor Android 7.
 
-De twee oudste geselecteerde versies zijn nog niet downloadbaar als APK:
+- **Android 8 — AAPS 2.8.2.1:** [herstelde prerelease](https://github.com/smokkelaar/AndroidAPSversion/releases/tag/legacy-2.8.2.1-android-8-fb9325384e96).
+  Gebouwd, ondertekend en gepubliceerd in [de herstelbuild](https://github.com/smokkelaar/AndroidAPSversion/actions/runs/37118312401).
+- **Android 7 — AAPS 2.6.2:** [herstelde prerelease](https://github.com/smokkelaar/AndroidAPSversion/releases/tag/legacy-2.6.2-android-7-03ce42fc4c8e).
+  Gebouwd, ondertekend en gepubliceerd in [de Android 7-herstelbuild](https://github.com/smokkelaar/AndroidAPSversion/actions/runs/37118781152).
 
-- **2.8.2.1 / Android 8:** de oorspronkelijke afhankelijkheden
-  `com.google.android:flexbox:0.3.0` en
-  `com.amulyakhare:com.amulyakhare.textdrawable:1.0.1` konden niet worden opgehaald.
-- **2.6.2 / Android 7:** de oorspronkelijke buildplugin
-  `io.fabric.tools:gradle:1.31.2` kon niet worden opgehaald; de Fabric-server gaf HTTP 403.
+Android 9–10 (**3.2.0.4**) en Android 11 (**3.3.2.1**) zijn eveneens beschikbaar
+in GitHub Releases. Iedere gepubliceerde selectie bevat afzonderlijke APK's voor
+telefoon en Wear. Herstelde Android 7/8-builds krijgen een prerelease-label.
 
-Dit zijn bouwbeperkingen en veranderen de officiële Android-keuzetabel niet.
-De oorspronkelijke broncode, afhankelijkheidsversies en geldigheidscontroles
-zijn behouden. Een herstel van deze historische toolchains is nog nodig voordat
-voor Android 7 en 8 een ondertekende APK kan worden gepubliceerd.
+De herstelroute vervangt verdwenen UI-bibliotheken door op SHA-256 vastgelegde
+bestanden en verwijdert uit de Android 7-Gradle-configuratie alleen de verdwenen
+Fabric- en Jacoco-buildplugins. De oorspronkelijke doseringscode, Android-eisen
+en versiecontrole blijven intact. WearPreferenceActivity komt uit een externe
+Appodeal-archiefkopie zonder door de auteur gepubliceerde checksum; onafhankelijke
+byte-identiteit met het oorspronkelijke bestand is niet bewezen. Ondertekening
+met hetzelfde certificaat en de minimale Android-versie worden door de workflow
+gecontroleerd. Deze bouwcontrole omvat geen installatie- of werkingstest op een
+fysieke telefoon of smartwatch.
