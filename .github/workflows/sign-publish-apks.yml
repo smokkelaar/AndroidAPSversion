@@ -172,7 +172,8 @@ jobs:
             --ks-pass env:KEYSTORE_PASSWORD --ks-key-alias "$KEY_ALIAS" --key-pass env:KEY_PASSWORD \
             --out "$OUTPUT" "$RUNNER_TEMP/${module}-aligned.apk"
           "$TOOLS/apksigner" verify --verbose --print-certs "$OUTPUT" > "$RUNNER_TEMP/${module}-verify.txt"
-          grep -F 'Signer #1 certificate SHA-256 digest: d6bf11fc569083e33dfc07733b579e4491beaa4ac3285b80fbe73e03c2691bb8' "$RUNNER_TEMP/${module}-verify.txt"
+          DIGESTS=$(sed -n 's/.*certificate SHA-256 digest: //p' "$RUNNER_TEMP/${module}-verify.txt" | sort -u)
+          test "$DIGESTS" = 'd6bf11fc569083e33dfc07733b579e4491beaa4ac3285b80fbe73e03c2691bb8'
         done
     - name: Publish verified APKs
       env:
