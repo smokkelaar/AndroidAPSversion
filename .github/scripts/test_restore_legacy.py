@@ -18,7 +18,7 @@ class LegacyRestorationTests(unittest.TestCase):
     def test_only_audited_commits_enabled(self):
         self.assertEqual(SOURCES, {
             'fb9325384e96cdf3b508468584156aa9971638da': '2.8.2.1',
-            '408329db4c833c47bafe4c7971fdbc1d5dc076ce': '2.6.2',
+            'd370673441a4c8bd49d154b044c5c9367471b130': '2.6.2',
         })
 
     def test_unknown_source_rejected_before_download(self):
@@ -48,3 +48,29 @@ class LegacyRestorationTests(unittest.TestCase):
             self.assertEqual([pom.findtext(key) for key in ['groupId', 'artifactId', 'version', 'packaging']],
                              ['com.google.android', 'flexbox', '0.3.0', 'aar'])
             self.assertEqual((root / 'env').read_text(), f'LEGACY_MAVEN={repository}\n')
+
+    def test_archived_pom_preserved_and_checksum_enforced(self):
+        artifact = b'archived aar'
+        pom = b'<project><dependencies><dependency>preserved fixture</dependency></dependencies></project>'
+        coordinate = ('me.denley.wearpreferenceactivity', 'wearpreferenceactivity', '0.5.0')
+        dependencies = [(*coordinate, 'https://example.invalid/library.aar', hashlib.sha256(artifact).hexdigest())]
+        for valid in [True, False]:
+            with self.subTest(valid=valid), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                with patch('restore_legacy.subprocess.check_output', return_value='fb9325384e96cdf3b508468584156aa9971638da'), \
+                     patch.dict(os.environ, {'VERSION': '2.8.2.1', 'RUNNER_TEMP': directory, 'GITHUB_ENV': str(root / 'env')}), \
+                     patch('restore_legacy.DEPENDENCIES', dependencies), \
+                     patch('restore_legacy.POM_CHECKSUMS', {coordinate: hashlib.sha256(pom).hexdigest()}), \
+                     patch('restore_legacy.urllib.request.urlopen') as download:
+                    download.return_value.__enter__.return_value.read.side_effect = [artifact, pom if valid else b'tampered']
+                    if valid:
+                        main()
+                    else:
+                        with self.assertRaises(ValueError):
+                            main()
+                target = root / 'legacy-maven/me/denley/wearpreferenceactivity/wearpreferenceactivity/0.5.0/wearpreferenceactivity-0.5.0.pom'
+                if valid:
+                    self.assertEqual(target.read_bytes(), pom)
+                else:
+                    self.assertFalse(target.exists())
+                    self.assertFalse((root / 'env').exists())
