@@ -1,23 +1,31 @@
 diff --git a/app/build.gradle b/app/build.gradle
-index 4ad7f8cd..495b40e1 100644
+index 4ad7f8cd..a61bd786 100644
 --- a/app/build.gradle
 +++ b/app/build.gradle
-@@ -5,7 +5,6 @@ buildscript {
+@@ -5,8 +5,6 @@ buildscript {
      }
  
      dependencies {
 -        classpath 'io.fabric.tools:gradle:1.+'
-         classpath 'com.dicedmelon.gradle:jacoco-android:0.1.4'
+-        classpath 'com.dicedmelon.gradle:jacoco-android:0.1.4'
          classpath 'de.undercouch:gradle-download-task:3.4.3'
      }
-@@ -14,7 +13,6 @@ apply plugin: 'com.android.application'
+ }
+@@ -14,14 +12,9 @@ apply plugin: 'com.android.application'
  apply plugin: 'kotlin-android'
  apply plugin: 'kotlin-android-extensions'
  apply plugin: 'com.google.gms.google-services'
 -apply plugin: 'io.fabric'
- apply plugin: 'jacoco-android'
+-apply plugin: 'jacoco-android'
  apply plugin: 'de.undercouch.download'
  
+ 
+-jacoco {
+-    toolVersion = "0.8.3"
+-}
+ 
+ ext {
+     supportLibraryVersion = "28.0.0"
 diff --git a/build.gradle b/build.gradle
 index 285afb4f..cf7c5f30 100644
 --- a/build.gradle

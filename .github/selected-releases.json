@@ -62,10 +62,10 @@
     {
       "channel": "legacy-restored",
       "ref": "compat-2.6.2",
-      "sha": "408329db4c833c47bafe4c7971fdbc1d5dc076ce",
-      "release_tag": "legacy-2.6.2-android-7-408329db4c83",
+      "sha": "d370673441a4c8bd49d154b044c5c9367471b130",
+      "release_tag": "legacy-2.6.2-android-7-d370673441a4",
       "version": "2.6.2",
-      "android_note": "Voor Android 7: de versie die de officiële AAPS-release notes voor deze Android-versie aanwijzen. Oudere versie; de ingebouwde versiecontrole blijft intact. Herstelde bronvariant van upstream-tag 2.6.2 (972fdbfe9e40853afc09eb06f83045c95acfb53c): alleen drie Fabric-buildpluginregels verwijderd. Runtime-SDK behouden; de oude Fabric-rapportagedienst is beëindigd. UI-bibliotheken hersteld uit vastgelegde oorspronkelijke bronrepositories met SHA-256-controle. Zie .github/legacy-build/README.md in de buildcontroller.",
+      "android_note": "Voor Android 7: de versie die de officiële AAPS-release notes voor deze Android-versie aanwijzen. Oudere versie; de ingebouwde versiecontrole blijft intact. Herstelde bronvariant van upstream-tag 2.6.2 (972fdbfe9e40853afc09eb06f83045c95acfb53c): alleen de verdwenen Fabric-buildplugin en Jacoco-testdekking uit Gradle verwijderd. Runtime-SDK behouden; de oude Fabric-rapportagedienst is beëindigd. UI-bibliotheken hersteld uit vastgelegde oorspronkelijke bronrepositories met SHA-256-controle; WearPreferenceActivity 0.5.0 hersteld uit de Appodeal Maven-mirror met gecontroleerde AAR en POM. Zie .github/legacy-build/README.md in de buildcontroller.",
       "source_repository": "smokkelaar/AndroidAPSversion"
     }
   ]
