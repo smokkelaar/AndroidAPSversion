@@ -1,0 +1,201 @@
+name: Sign and publish APKs
+'on':
+  workflow_call:
+    inputs:
+      artifact_name:
+        required: true
+        type: string
+      release_tag:
+        required: true
+        type: string
+      release_title:
+        required: true
+        type: string
+      source_ref:
+        required: true
+        type: string
+      source_sha:
+        required: true
+        type: string
+      prerelease:
+        required: true
+        type: boolean
+permissions:
+  contents: read
+jobs:
+  publish:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      contents: write
+    defaults:
+      run:
+        shell: bash
+    env:
+      RELEASE_TAG: ${{ inputs.release_tag }}
+      RELEASE_TITLE: ${{ inputs.release_title }}
+      SOURCE_REF: ${{ inputs.source_ref }}
+      SOURCE_COMMIT: ${{ inputs.source_sha }}
+      CONTROLLER_SHA: ${{ github.sha }}
+      PRERELEASE: ${{ inputs.prerelease }}
+    steps:
+    - name: Download APK data only
+      uses: actions/download-artifact@v4
+      with:
+        name: ${{ inputs.artifact_name }}
+        path: incoming
+    - name: Validate publication inputs
+      run: |
+        [[ "$RELEASE_TAG" =~ ^[A-Za-z0-9][A-Za-z0-9._-]{0,200}$ ]]
+        [[ "$SOURCE_COMMIT" =~ ^[a-f0-9]{40}$ ]]
+        test -f incoming/phone.apk && test ! -L incoming/phone.apk
+        test -f incoming/wear.apk && test ! -L incoming/wear.apk
+    - uses: actions/setup-java@v5
+      with:
+        java-version: '21'
+        distribution: temurin
+    - name: Load signing secrets
+      env:
+        SECRET_KEYSTORE_SET: ${{ secrets.KEYSTORE_SET }}
+        SECRET_KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+        SECRET_KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+        SECRET_KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+        SECRET_KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+      run: |
+        if [ -n "$SECRET_KEYSTORE_SET" ]; then
+          echo "🔐 Decoding KEYSTORE_SET..."
+          DECODED=$(printf '%s' "$SECRET_KEYSTORE_SET" | base64 -d)
+
+          KEYSTORE_BASE64=$(echo "$DECODED" | cut -d'|' -f1)
+          KEYSTORE_PASSWORD=$(echo "$DECODED" | cut -d'|' -f2)
+          KEY_ALIAS=$(echo "$DECODED" | cut -d'|' -f3)
+          KEY_PASSWORD=$(echo "$DECODED" | cut -d'|' -f4)
+
+          echo "KEYSTORE_BASE64=$KEYSTORE_BASE64" >> $GITHUB_ENV
+          echo "KEYSTORE_PASSWORD=$KEYSTORE_PASSWORD" >> $GITHUB_ENV
+          echo "KEY_ALIAS=$KEY_ALIAS" >> $GITHUB_ENV
+          echo "KEY_PASSWORD=$KEY_PASSWORD" >> $GITHUB_ENV
+
+          echo "::add-mask::$KEYSTORE_BASE64"
+          echo "::add-mask::$KEYSTORE_PASSWORD"
+          echo "::add-mask::$KEY_ALIAS"
+          echo "::add-mask::$KEY_PASSWORD"
+
+          echo "✅ Keystore parameters extracted from KEYSTORE_SET"
+        else
+          echo "ℹ️ KEYSTORE_SET not provided, using separate secrets."
+          echo "KEYSTORE_BASE64=$SECRET_KEYSTORE_BASE64" >> $GITHUB_ENV
+          echo "KEYSTORE_PASSWORD=$SECRET_KEYSTORE_PASSWORD" >> $GITHUB_ENV
+          echo "KEY_ALIAS=$SECRET_KEY_ALIAS" >> $GITHUB_ENV
+          echo "KEY_PASSWORD=$SECRET_KEY_PASSWORD" >> $GITHUB_ENV
+        fi
+    - name: Check Secrets
+      run: |
+        echo "🔍 Checking required secrets..."
+        MISSING=0
+
+        check_secret() {
+          if [ -z "$1" ]; then
+            echo "❌ Missing secret: $2"
+            MISSING=1
+          fi
+        }
+
+        # Check secrets
+
+        check_secret "$KEYSTORE_BASE64" "KEYSTORE_BASE64"
+        check_secret "$KEYSTORE_PASSWORD" "KEYSTORE_PASSWORD"
+        check_secret "$KEY_ALIAS" "KEY_ALIAS"
+        check_secret "$KEY_PASSWORD" "KEY_PASSWORD"
+
+        if [ "$MISSING" -eq 1 ]; then
+          echo "🛑 Missing required secrets. Stopping build."
+          exit 1
+        fi
+
+        echo "✅ All required secrets are present."
+    - name: Decode keystore file
+      run: |
+        mkdir -p "$RUNNER_TEMP/keystore"
+        printf '%s' "$KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/keystore/keystore.jks"
+    - name: Validating keystore, alias and password
+      run: |
+        echo "🔐 Validating keystore, alias and password"
+
+        # Create a dummy JAR file (quick method using zip)
+        echo "test" > dummy.txt
+        zip -q dummy.jar dummy.txt
+        rm dummy.txt
+
+        # Attempt to validate using jarsigner
+        JARSIGNER_LOG=$(mktemp)
+        if ! jarsigner \
+            -keystore "$RUNNER_TEMP/keystore/keystore.jks" \
+            -storepass "$KEYSTORE_PASSWORD" \
+            -keypass "$KEY_PASSWORD" \
+            dummy.jar "$KEY_ALIAS" > "$JARSIGNER_LOG" 2>&1; then
+          echo "❌ Either KEYSTORE_BASE64, KEYSTORE_PASSWORD, KEY_PASSWORD, or KEY_ALIAS is incorrect"
+          echo "🔍 jarsigner error output:"
+          cat "$JARSIGNER_LOG"
+          rm -f "$JARSIGNER_LOG" dummy.jar
+          exit 1
+        fi
+        rm -f "$JARSIGNER_LOG" dummy.jar
+        echo "✅ Keystore, alias, and key password are valid."
+
+        echo "✅ Keystore and credentials validated."
+    - name: Check signing certificate matches existing APK
+      run: |
+        keytool -exportcert -keystore "$RUNNER_TEMP/keystore/keystore.jks" \
+          -storepass:env KEYSTORE_PASSWORD -alias "$KEY_ALIAS" \
+          -file "$RUNNER_TEMP/keystore/certificate.der"
+        EXPECTED="d6bf11fc569083e33dfc07733b579e4491beaa4ac3285b80fbe73e03c2691bb8"
+        ACTUAL=$(sha256sum "$RUNNER_TEMP/keystore/certificate.der" | cut -d' ' -f1)
+        if [ "$ACTUAL" != "$EXPECTED" ]; then
+          echo "Signing certificate differs from your existing 3.3.2.1 APK. Check KEY_ALIAS and KEYSTORE_BASE64."
+          exit 1
+        fi
+        echo "Signing certificate matches your existing APK."
+    - name: Align, sign and verify APKs without executing build code
+      run: |
+        set -euo pipefail
+        TOOLS=$(find "$ANDROID_HOME/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -n 1)
+        test -x "$TOOLS/apksigner" && test -x "$TOOLS/zipalign"
+        mkdir -p signed
+        for module in phone wear; do
+          SUFFIX=""
+          if [ "$module" = wear ]; then SUFFIX="-wear"; fi
+          OUTPUT="signed/aaps${SUFFIX}-${RELEASE_TAG}.apk"
+          "$TOOLS/zipalign" -f -P 16 4 "incoming/${module}.apk" "$RUNNER_TEMP/${module}-aligned.apk"
+          "$TOOLS/apksigner" sign --ks "$RUNNER_TEMP/keystore/keystore.jks" \
+            --ks-pass env:KEYSTORE_PASSWORD --ks-key-alias "$KEY_ALIAS" --key-pass env:KEY_PASSWORD \
+            --out "$OUTPUT" "$RUNNER_TEMP/${module}-aligned.apk"
+          "$TOOLS/apksigner" verify --verbose --print-certs "$OUTPUT" > "$RUNNER_TEMP/${module}-verify.txt"
+          grep -F 'Signer #1 certificate SHA-256 digest: d6bf11fc569083e33dfc07733b579e4491beaa4ac3285b80fbe73e03c2691bb8' "$RUNNER_TEMP/${module}-verify.txt"
+        done
+    - name: Publish verified APKs
+      env:
+        GH_TOKEN: ${{ github.token }}
+      run: |
+        set -euo pipefail
+        printf 'Source ref: %s
+        Source commit: %s
+        Build workflow: https://github.com/%s/actions/runs/%s
+        '   "${SOURCE_REF:-manual}" "$SOURCE_COMMIT" "$GITHUB_REPOSITORY" "$GITHUB_RUN_ID" > "$RUNNER_TEMP/release-notes.md"
+        if gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" > /dev/null 2>&1; then
+          DRAFT=$(gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --json isDraft --jq .isDraft)
+          if [ "$DRAFT" != "true" ]; then
+            echo "Release already published: $RELEASE_TAG"
+            exit 0
+          fi
+        else
+          FLAGS=(--draft --latest=false)
+          if [ "$PRERELEASE" = "true" ]; then FLAGS+=(--prerelease); fi
+          gh release create "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY"     --target "$CONTROLLER_SHA" --title "$RELEASE_TITLE"     --notes-file "$RUNNER_TEMP/release-notes.md" "${FLAGS[@]}"
+        fi
+        gh release upload "$RELEASE_TAG" "signed/aaps-${RELEASE_TAG}.apk" "signed/aaps-wear-${RELEASE_TAG}.apk" --repo "$GITHUB_REPOSITORY" --clobber
+        gh release edit "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --draft=false --latest=false
+    - name: Remove signing material
+      if: always()
+      run: |
+        rm -rf -- "$RUNNER_TEMP/keystore"

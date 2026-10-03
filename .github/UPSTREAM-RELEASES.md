@@ -23,7 +23,12 @@ kunnen overslaan.
 
 Iedere release bevat ondertekende **fullRelease** APK's voor telefoon en Wear.
 De bestaande keystore en controle van het ondertekeningscertificaat blijven
-in gebruik. Upstream-tags en branches worden rechtstreeks uitgecheckt op hun
+in gebruik. Buildrunners hebben uitsluitend leesrechten en ontvangen geen
+ondertekeningssleutels. De APK-bestanden gaan via Actions-artifacts naar een
+nieuwe runner die ze met `zipalign` en `apksigner` ondertekent en verifieert.
+Die runner checkt geen broncode uit, voert geen Gradle uit en herstelt geen
+buildcaches. Alleen die runner krijgt de sleutel en publicatierechten.
+Upstream-tags en branches worden rechtstreeks uitgecheckt op hun
 vastgelegde commit; de fork hoeft daarvoor niet met upstream te worden gesynchroniseerd.
 
 ## Publicatie en herstel
@@ -38,7 +43,12 @@ releases tellen als geslaagd. Een mislukte build of upload wordt bij een volgend
 controle opnieuw geprobeerd; een bestaand concept wordt afgemaakt. Bij een mislukte
 branchbuild kan een nieuwere branchstand de vorige poging vervangen.
 Er draaien maximaal twee builds tegelijk en maximaal twintig per controle.
-Overige nieuwe tags komen bij de volgende controle aan bod. Releases worden bewaard.
+De branch `upstream-release-state` bewaart in `release-queue.json` welke refs
+als laatste zijn geprobeerd. De twintig langst niet geprobeerde refs worden
+geselecteerd; deze keuze wordt vóór de builds opgeslagen. Ook wanneer builds
+mislukken voordat er een conceptrelease is gemaakt, komen latere tags aan bod.
+Verwijder deze branch niet: het is de blijvende wachtrijadministratie.
+Releases worden bewaard.
 Automatische en handmatige builds markeren releases niet als GitHub's algemene Latest.
 
 De bestaande handmatige AAPS-, Branch-, PR- en Cherry Pick-workflows publiceren
@@ -56,4 +66,7 @@ GitHub-planning kan vertraging hebben. In openbare repositories schakelt GitHub
 geplande workflows na 60 dagen zonder repositoryactiviteit uit; schakel de workflow
 dan opnieuw in via Actions. Zie [GitHub's documentatie over schedule](https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows#schedule).
 
-Plannercontroles: `python -m unittest discover -s .github/scripts -p 'test_*.py'`.
+Regressiecontroles: `python -m unittest discover -s .github/scripts -p 'test_*.py'`
+(met PyYAML). **Release Pipeline Tests** controleert ook de isolatie tussen
+runners en test het ondertekenen van kleine fixture-APK's met tijdelijke sleutels.
+Er worden daarbij geen oude AAPS-versies gebouwd of releases gepubliceerd.

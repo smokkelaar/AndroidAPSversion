@@ -1,5 +1,5 @@
 import unittest
-from plan_upstream import plan, read_refs, release_tag
+from plan_upstream import choose_batch, plan, read_refs, release_tag
 
 
 class PlannerTests(unittest.TestCase):
@@ -32,6 +32,31 @@ class PlannerTests(unittest.TestCase):
     def test_sanitized_tag_names_do_not_collide(self):
         self.assertNotEqual(release_tag('tags', 'release/4', 'a' * 40),
                             release_tag('tags', 'release-4', 'a' * 40))
+
+    def test_failures_do_not_starve_later_tags(self):
+        pending = [{'release_tag': f'tag-{i:03}'} for i in range(65)]
+        attempts = {}
+        seen = set()
+        for _ in range(4):
+            batch, attempts = choose_batch(pending, attempts)
+            self.assertEqual(len(batch), 20)
+            seen.update(item['release_tag'] for item in batch)
+        self.assertEqual(len(seen), 65)  # Even when EVERY attempt fails.
+
+    def test_new_tag_precedes_repeated_failure(self):
+        pending = [{'release_tag': 'old'}, {'release_tag': 'new'}]
+        batch, updated = choose_batch(pending, {'old': 7}, limit=1)
+        self.assertEqual(batch, [{'release_tag': 'new'}])
+        self.assertEqual(updated, {'old': 7, 'new': 8})
+
+    def test_rotation_survives_serialization_and_success_removal(self):
+        import json
+        pending = [{'release_tag': 'a'}, {'release_tag': 'b'}, {'release_tag': 'c'}]
+        first, attempts = choose_batch(pending, {}, limit=1)
+        attempts = json.loads(json.dumps(attempts))
+        second, attempts = choose_batch(pending[1:], attempts, limit=1)
+        self.assertEqual(first[0]['release_tag'], 'a')
+        self.assertEqual(second[0]['release_tag'], 'b')
 
 
 if __name__ == '__main__':
