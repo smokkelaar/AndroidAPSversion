@@ -31,7 +31,10 @@ repositories, beschikbaar via JitPack, en een gearchiveerde Wear-bibliotheek:
 De controller controleert de SHA-256 van alle drie AAR-bestanden voordat Gradle ze
 via een tijdelijke lokale Maven-repository kan gebruiken. Een gewijzigde download
 of een andere broncommit wordt geweigerd. De init-configuratie staat buiten de
-AAPS-broncheckout en bevat uitsluitend repositoryconfiguratie en het Fabric-build-ID.
+AAPS-broncheckout en bevat repositoryconfiguratie, het Fabric-build-ID en de
+NDK-keuze voor 2.6.2. Deze build gebruikt NDK `20.0.5594570`, passend bij AGP 3.6;
+2.8.2.1 gebruikt de upstream vastgelegde NDK `21.1.6352462`. De workflow installeert
+beide historische toolchains voor de bijbehorende builds.
 
 De builds hebben geen private ondertekeningssleutels. APK's worden op een aparte
 runner uitgelijnd, ondertekend en gecontroleerd. De release vermeldt de gebruikte
