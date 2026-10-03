@@ -1,11 +1,19 @@
 // The controller verified both AAR checksums before creating this local repository.
 allprojects {
-    repositories {
-        maven {
+    def verifiedRepository = repositories.maven {
             url uri(System.getenv('LEGACY_MAVEN'))
             content {
                 includeModule 'com.google.android', 'flexbox'
                 includeModule 'com.amulyakhare', 'com.amulyakhare.textdrawable'
+            }
+    }
+    // Gradle 5.6 supports content filters; exclusiveContent requires newer Gradle.
+    // Apply to repositories already present and those added by the source build.
+    repositories.all { repository ->
+        if (repository != verifiedRepository) {
+            repository.content {
+                excludeModule 'com.google.android', 'flexbox'
+                excludeModule 'com.amulyakhare', 'com.amulyakhare.textdrawable'
             }
         }
     }
