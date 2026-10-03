@@ -46,3 +46,22 @@ ondertekening als je bestaande APK. De Android-eis voor Wear kan anders zijn dan
 die voor de telefoon. Oude versies zijn afhankelijk van oude buildrepositories;
 een vermelding in deze selectie betekent pas een downloadbare build zodra de
 bijbehorende workflow en ondertekening zijn geslaagd.
+
+## Resultaat van de historische bouwcontrole
+
+In de [bouwcontrole van 3 oktober 2026](https://github.com/smokkelaar/AndroidAPSversion/actions/runs/37113752338)
+is **3.2.0.4 voor Android 9–10** succesvol gebouwd, ondertekend en gepubliceerd.
+**3.3.2.1 voor Android 11** is eveneens beschikbaar in GitHub Releases.
+
+De twee oudste geselecteerde versies zijn nog niet downloadbaar als APK:
+
+- **2.8.2.1 / Android 8:** de oorspronkelijke afhankelijkheden
+  `com.google.android:flexbox:0.3.0` en
+  `com.amulyakhare:com.amulyakhare.textdrawable:1.0.1` konden niet worden opgehaald.
+- **2.6.2 / Android 7:** de oorspronkelijke buildplugin
+  `io.fabric.tools:gradle:1.31.2` kon niet worden opgehaald; de Fabric-server gaf HTTP 403.
+
+Dit zijn bouwbeperkingen en veranderen de officiële Android-keuzetabel niet.
+De oorspronkelijke broncode, afhankelijkheidsversies en geldigheidscontroles
+zijn behouden. Een herstel van deze historische toolchains is nog nodig voordat
+voor Android 7 en 8 een ondertekende APK kan worden gepubliceerd.
