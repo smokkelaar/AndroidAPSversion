@@ -28,6 +28,7 @@ class MetadataTests(unittest.TestCase):
                 result = read_metadata(root, MAPPING)
                 self.assertEqual(result['VERSION'], version)
                 self.assertEqual(result['MIN_SDK'], minimum)
+                self.assertEqual(result['COMPILE_SDK'], 28)
                 self.assertEqual(result['JAVA_VERSION'], 11)
 
     def test_unexpected_version_is_rejected_before_environment_output(self):
