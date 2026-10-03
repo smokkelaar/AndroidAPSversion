@@ -1,0 +1,45 @@
+name: Seed Selected Releases
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: seed-selected-releases
+  cancel-in-progress: false
+
+jobs:
+  selection:
+    runs-on: ubuntu-24.04
+    outputs:
+      matrix: ${{ steps.plan.outputs.matrix }}
+      count: ${{ steps.plan.outputs.count }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - name: Select only the requested pinned snapshots
+        id: plan
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 .github/scripts/plan_selected.py
+
+  build:
+    needs: selection
+    if: needs.selection.outputs.count != '0'
+    permissions:
+      contents: write
+    strategy:
+      fail-fast: false
+      max-parallel: 2
+      matrix: ${{ fromJSON(needs.selection.outputs.matrix) }}
+    uses: ./.github/workflows/build-upstream-release.yml
+    with:
+      source_sha: ${{ matrix.sha }}
+      source_ref: ${{ matrix.ref }}
+      channel: ${{ matrix.channel }}
+      release_tag: ${{ matrix.release_tag }}
+      android_note: ${{ matrix.android_note }}
+    secrets: inherit

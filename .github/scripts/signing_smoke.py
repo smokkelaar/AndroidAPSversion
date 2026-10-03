@@ -40,7 +40,7 @@ def main():
         expected = hashlib.sha256((root / 'certificate.der').read_bytes()).hexdigest()
         script = step['run'].replace('d6bf11fc569083e33dfc07733b579e4491beaa4ac3285b80fbe73e03c2691bb8', expected)
         env = {**os.environ, 'RUNNER_TEMP': str(root), 'RELEASE_TAG': 'fixture-test',
-               'KEYSTORE_PASSWORD': password, 'KEY_PASSWORD': password, 'KEY_ALIAS': 'fixture'}
+               'KEYSTORE_PASSWORD': password, 'KEY_PASSWORD': password, 'KEY_ALIAS': 'fixture', 'MIN_PHONE_SDK': '23'}
         try:
             subprocess.run(['bash', '-euo', 'pipefail', '-c', script], cwd=root, env=env, check=True)
         except subprocess.CalledProcessError:

@@ -14,6 +14,10 @@ name: Build Upstream Release
       release_tag:
         required: true
         type: string
+      android_note:
+        required: false
+        default: ''
+        type: string
 permissions:
   contents: read
 jobs:
@@ -38,22 +42,17 @@ jobs:
         fetch-depth: 1
         persist-credentials: false
     - name: Read upstream version and JVM requirement
-      run: |
-        set -euo pipefail
-        VERSION=$(sed -n 's/.*const val appVersion = "\([^"]*\)".*/\1/p' buildSrc/src/main/kotlin/Versions.kt)
-        test -n "$VERSION"
-        JAVA_VERSION=$(jq -r '.default' ../controller/.github/jdk-map.json)
-        while IFS=$'\t' read -r pattern jdk; do
-          if [[ "$VERSION" == $pattern ]]; then JAVA_VERSION="$jdk"; break; fi
-        done < <(jq -r '.mappings[] | "\(.pattern)\t\(.jdk)"' ../controller/.github/jdk-map.json)
-        echo "VERSION=$VERSION" >> "$GITHUB_ENV"
-        echo "JAVA_VERSION=$JAVA_VERSION" >> "$GITHUB_ENV"
+      id: metadata
+      run: python3 ../controller/.github/scripts/build_metadata.py
     - uses: actions/setup-java@v5
       with:
         java-version: ${{ env.JAVA_VERSION }}
         distribution: temurin
         cache: gradle
         cache-dependency-path: source/**/*.gradle*
+    - name: Install historical Android SDK packages when needed
+      if: env.COMPILE_SDK == '28'
+      run: '"$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-28" "build-tools;29.0.2"'
     - name: Build APKs without private signing credentials
       run: |
         chmod +x gradlew
@@ -82,6 +81,9 @@ jobs:
         retention-days: 2
     permissions:
       contents: read
+    outputs:
+      version: ${{ steps.metadata.outputs.version }}
+      min_sdk: ${{ steps.metadata.outputs.min_sdk }}
   publish:
     needs: build
     permissions:
@@ -91,9 +93,12 @@ jobs:
       artifact_name: apk-${{ github.run_id }}-${{ github.run_attempt }}-${{ inputs.release_tag
         }}
       release_tag: ${{ inputs.release_tag }}
-      release_title: AAPS ${{ inputs.channel }} / ${{ inputs.source_ref }}
+      release_title: AAPS ${{ needs.build.outputs.version }} / ${{ inputs.channel }}
       source_ref: ${{ inputs.source_ref }}
       source_sha: ${{ inputs.source_sha }}
-      prerelease: ${{ inputs.channel != 'tags' || contains(inputs.source_ref, '-')
+      source_repository: nightscout/AndroidAPS
+      min_phone_sdk: ${{ needs.build.outputs.min_sdk }}
+      android_note: 'Minimum Android API ${{ needs.build.outputs.min_sdk }}. ${{ inputs.android_note }}'
+      prerelease: ${{ (inputs.channel != 'tags' && inputs.channel != 'legacy') || contains(inputs.source_ref, '-')
         }}
     secrets: inherit
