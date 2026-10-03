@@ -41,7 +41,13 @@ def main():
         script = step['run'].replace('d6bf11fc569083e33dfc07733b579e4491beaa4ac3285b80fbe73e03c2691bb8', expected)
         env = {**os.environ, 'RUNNER_TEMP': str(root), 'RELEASE_TAG': 'fixture-test',
                'KEYSTORE_PASSWORD': password, 'KEY_PASSWORD': password, 'KEY_ALIAS': 'fixture'}
-        subprocess.run(['bash', '-euo', 'pipefail', '-c', script], cwd=root, env=env, check=True)
+        try:
+            subprocess.run(['bash', '-euo', 'pipefail', '-c', script], cwd=root, env=env, check=True)
+        except subprocess.CalledProcessError:
+            print('Available tools:', [(p.name, (p / 'apksigner').exists()) for p in (sdk / 'build-tools').iterdir()], flush=True)
+            for log in root.glob('*-verify.txt'):
+                print(log.read_text(), flush=True)
+            raise
         assert len(list((root / 'signed').glob('*.apk'))) == 2
         print('Unsigned phone and previously signed Wear APKs both re-signed and verified successfully.')
 

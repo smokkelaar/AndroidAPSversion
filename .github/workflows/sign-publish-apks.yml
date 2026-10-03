@@ -160,6 +160,7 @@ jobs:
       run: |
         set -euo pipefail
         TOOLS=$(find "$ANDROID_HOME/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -n 1)
+        echo "Android signing tools: $TOOLS"
         test -x "$TOOLS/apksigner" && test -x "$TOOLS/zipalign"
         mkdir -p signed
         for module in phone wear; do
