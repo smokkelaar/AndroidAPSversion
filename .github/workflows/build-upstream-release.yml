@@ -2,6 +2,10 @@ name: Build Upstream Release
 'on':
   workflow_call:
     inputs:
+      source_repository:
+        required: false
+        default: nightscout/AndroidAPS
+        type: string
       source_sha:
         required: true
         type: string
@@ -36,7 +40,7 @@ jobs:
         persist-credentials: false
     - uses: actions/checkout@v5
       with:
-        repository: nightscout/AndroidAPS
+        repository: ${{ inputs.source_repository }}
         ref: ${{ inputs.source_sha }}
         path: source
         fetch-depth: 1
@@ -57,7 +61,15 @@ jobs:
     - name: Build APKs without private signing credentials
       run: |
         chmod +x gradlew
+        EXTRA_ARGS=()
+        if [ "$VERSION" = '2.6.2' ] || [ "$VERSION" = '2.8.2.1' ]; then
+          python3 ../controller/.github/scripts/restore_legacy.py
+          # GITHUB_ENV becomes available to later steps; expose it in this step too.
+          export LEGACY_MAVEN="$RUNNER_TEMP/legacy-maven"
+          EXTRA_ARGS=(-I ../controller/.github/legacy-build/init.gradle)
+        fi
         ./gradlew :app:assembleFullRelease :wear:assembleFullRelease \
+          "${EXTRA_ARGS[@]}" \
           -Dorg.gradle.jvmargs="-Xmx5g -XX:+UseParallelGC -Xss4m" \
           -Dkotlin.daemon.jvm.options="-Xmx1g" \
           -Pkotlin.compiler.execution.strategy="in-process" -Dorg.gradle.workers.max=2
@@ -97,7 +109,7 @@ jobs:
       release_title: AAPS ${{ needs.build.outputs.version }} / ${{ inputs.channel }}
       source_ref: ${{ inputs.source_ref }}
       source_sha: ${{ inputs.source_sha }}
-      source_repository: nightscout/AndroidAPS
+      source_repository: ${{ inputs.source_repository }}
       min_phone_sdk: ${{ needs.build.outputs.min_sdk }}
       android_note: 'Minimum Android API ${{ needs.build.outputs.min_sdk }}. ${{ inputs.android_note }}'
       prerelease: ${{ (inputs.channel != 'tags' && inputs.channel != 'legacy') || contains(inputs.source_ref, '-')
