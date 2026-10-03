@@ -40,7 +40,7 @@ def main():
         expected = hashlib.sha256((root / 'certificate.der').read_bytes()).hexdigest()
         script = step['run'].replace('d6bf11fc569083e33dfc07733b579e4491beaa4ac3285b80fbe73e03c2691bb8', expected)
         env = {**os.environ, 'RUNNER_TEMP': str(root), 'RELEASE_TAG': 'fixture-test',
-               'KEYSTORE_PASSWORD': password, 'KEY_PASSWORD': password, 'KEY_ALIAS': 'fixture'}
+               'KEYSTORE_PASSWORD': password, 'KEY_PASSWORD': password, 'KEY_ALIAS': 'fixture', 'MIN_PHONE_SDK': '23'}
         try:
             subprocess.run(['bash', '-euo', 'pipefail', '-c', script], cwd=root, env=env, check=True)
         except subprocess.CalledProcessError:
@@ -50,6 +50,14 @@ def main():
             raise
         assert len(list((root / 'signed').glob('*.apk'))) == 2
         print('Unsigned phone and previously signed Wear APKs both re-signed and verified successfully.')
+        for apk in (root / 'signed').glob('*.apk'):
+            apk.unlink()
+        env['MIN_PHONE_SDK'] = '24'
+        rejected = subprocess.run(['bash', '-euo', 'pipefail', '-c', script],
+                                  cwd=root, env=env, capture_output=True, text=True)
+        assert rejected.returncode != 0, 'Mismatched minimum SDK was accepted'
+        assert 'Phone minimum SDK mismatch: expected 24, got 23' in rejected.stderr, rejected.stderr
+        print('APK with a mismatched minimum SDK rejected before publication.')
 
 
 if __name__ == '__main__':

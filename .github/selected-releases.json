@@ -1,0 +1,71 @@
+{
+  "checked_at": "2026-10-03",
+  "upstream": "nightscout/AndroidAPS",
+  "compatibility_source": "https://wiki.aaps.app/en/latest/Maintenance/ReleaseNotes.html#android-version-and-aaps-version",
+  "releases": [
+    {
+      "channel": "master",
+      "ref": "master",
+      "sha": "598e2eb39c7e15876e4c42876a2162bffcb4fe5f",
+      "release_tag": "upstream-master-598e2eb39c7e15876e4c42876a2162bffcb4fe5f",
+      "version": "3.4.2.6",
+      "android_note": "Android 12 of nieuwer. Kanaalsnapshot; geen stabiele-releaseadvies."
+    },
+    {
+      "channel": "dev",
+      "ref": "dev",
+      "sha": "6deea754463b8df40251a765c4d12a289200cde3",
+      "release_tag": "upstream-dev-6deea754463b8df40251a765c4d12a289200cde3",
+      "version": "4.0.0-dev-c",
+      "android_note": "Android 12 of nieuwer. Kanaalsnapshot; geen stabiele-releaseadvies."
+    },
+    {
+      "channel": "dev3",
+      "ref": "dev3",
+      "sha": "0be79ec7090c2cb7865ec67f91cee10700af48c4",
+      "release_tag": "upstream-dev3-0be79ec7090c2cb7865ec67f91cee10700af48c4",
+      "version": "3.4.2.6",
+      "android_note": "Android 12 of nieuwer. Kanaalsnapshot; geen stabiele-releaseadvies."
+    },
+    {
+      "channel": "tags",
+      "ref": "3.4.2.6",
+      "sha": "598e2eb39c7e15876e4c42876a2162bffcb4fe5f",
+      "release_tag": "upstream-tag-3.4.2.6-2723172b7094-598e2eb39c7e15876e4c42876a2162bffcb4fe5f",
+      "version": "3.4.2.6",
+      "android_note": "Android 12 of nieuwer. Laatste stabiele AAPS-release op 3 oktober 2026."
+    },
+    {
+      "channel": "legacy",
+      "ref": "v3.3.2.1",
+      "sha": "efaabe8602a7c0238069e31f738b4ff60ef83233",
+      "release_tag": "legacy-3.3.2.1-android-11-efaabe8602a7",
+      "version": "3.3.2.1",
+      "android_note": "Voor Android 11: de versie die de officiële AAPS-release notes voor deze Android-versie aanwijzen. Oudere versie; de ingebouwde versiecontrole blijft intact."
+    },
+    {
+      "channel": "legacy",
+      "ref": "v3.2.0.4",
+      "sha": "3df83535f9f8f3246308121900c2785c50915fa8",
+      "release_tag": "legacy-3.2.0.4-android-9-10-3df83535f9f8",
+      "version": "3.2.0.4",
+      "android_note": "Voor Android 9-10: de versie die de officiële AAPS-release notes voor deze Android-versie aanwijzen. Oudere versie; de ingebouwde versiecontrole blijft intact."
+    },
+    {
+      "channel": "legacy",
+      "ref": "v2.8.2.1",
+      "sha": "fb9325384e96cdf3b508468584156aa9971638da",
+      "release_tag": "legacy-2.8.2.1-android-8-fb9325384e96",
+      "version": "2.8.2.1",
+      "android_note": "Voor Android 8: de versie die de officiële AAPS-release notes voor deze Android-versie aanwijzen. Oudere versie; de ingebouwde versiecontrole blijft intact."
+    },
+    {
+      "channel": "legacy",
+      "ref": "2.6.2",
+      "sha": "972fdbfe9e40853afc09eb06f83045c95acfb53c",
+      "release_tag": "legacy-2.6.2-android-7-972fdbfe9e40",
+      "version": "2.6.2",
+      "android_note": "Voor Android 7: de versie die de officiële AAPS-release notes voor deze Android-versie aanwijzen. Oudere versie; de ingebouwde versiecontrole blijft intact."
+    }
+  ]
+}
