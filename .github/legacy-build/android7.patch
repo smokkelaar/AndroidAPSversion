@@ -38,3 +38,23 @@ index 285afb4f..cf7c5f30 100644
  
          // NOTE: Do not place your application dependencies here; they belong
          // in the individual module build.gradle files
+diff --git a/wear/build.gradle b/wear/build.gradle
+index 3a2277e2..e7c7957a 100644
+--- a/wear/build.gradle
++++ b/wear/build.gradle
+@@ -4,15 +4,10 @@ buildscript {
+     }
+ 
+     dependencies {
+-        classpath 'com.dicedmelon.gradle:jacoco-android:0.1.4'
+     }
+ }
+ apply plugin: 'com.android.application'
+-apply plugin: 'jacoco-android'
+ 
+-jacoco {
+-    toolVersion = "0.8.3"
+-}
+ 
+ ext {
+     wearableVersion = "2.4.0"
