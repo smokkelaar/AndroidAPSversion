@@ -1,0 +1,200 @@
+name: Build Upstream Release
+'on':
+  workflow_call:
+    inputs:
+      source_sha:
+        required: true
+        type: string
+      source_ref:
+        required: true
+        type: string
+      channel:
+        required: true
+        type: string
+      release_tag:
+        required: true
+        type: string
+permissions:
+  contents: write
+jobs:
+  build:
+    name: ${{ inputs.channel }} / ${{ inputs.source_ref }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    defaults:
+      run:
+        shell: bash
+        working-directory: source
+    env:
+      RELEASE_TAG: ${{ inputs.release_tag }}
+      RELEASE_TITLE: AAPS ${{ inputs.channel }} / ${{ inputs.source_ref }}
+      SOURCE_REF: ${{ inputs.source_ref }}
+      CONTROLLER_SHA: ${{ github.sha }}
+      PRERELEASE: ${{ inputs.channel != 'tags' || contains(inputs.source_ref, '-') }}
+    steps:
+    - uses: actions/checkout@v5
+      with:
+        path: controller
+        persist-credentials: false
+    - uses: actions/checkout@v5
+      with:
+        repository: nightscout/AndroidAPS
+        ref: ${{ inputs.source_sha }}
+        path: source
+        fetch-depth: 1
+        persist-credentials: false
+    - name: Read upstream version and JVM requirement
+      run: |
+        set -euo pipefail
+        VERSION=$(sed -n 's/.*const val appVersion = "\([^"]*\)".*/\1/p' buildSrc/src/main/kotlin/Versions.kt)
+        test -n "$VERSION"
+        JAVA_VERSION=$(jq -r '.default' ../controller/.github/jdk-map.json)
+        while IFS=$'\t' read -r pattern jdk; do
+          if [[ "$VERSION" == $pattern ]]; then JAVA_VERSION="$jdk"; break; fi
+        done < <(jq -r '.mappings[] | "\(.pattern)\t\(.jdk)"' ../controller/.github/jdk-map.json)
+        echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+        echo "JAVA_VERSION=$JAVA_VERSION" >> "$GITHUB_ENV"
+    - uses: actions/setup-java@v5
+      with:
+        java-version: ${{ env.JAVA_VERSION }}
+        distribution: temurin
+        cache: gradle
+        cache-dependency-path: source/**/*.gradle*
+    - name: Load signing secrets
+      env:
+        SECRET_KEYSTORE_SET: ${{ secrets.KEYSTORE_SET }}
+        SECRET_KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+        SECRET_KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+        SECRET_KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+        SECRET_KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+      run: |
+        if [ -n "$SECRET_KEYSTORE_SET" ]; then
+          echo "🔐 Decoding KEYSTORE_SET..."
+          DECODED=$(printf '%s' "$SECRET_KEYSTORE_SET" | base64 -d)
+
+          KEYSTORE_BASE64=$(echo "$DECODED" | cut -d'|' -f1)
+          KEYSTORE_PASSWORD=$(echo "$DECODED" | cut -d'|' -f2)
+          KEY_ALIAS=$(echo "$DECODED" | cut -d'|' -f3)
+          KEY_PASSWORD=$(echo "$DECODED" | cut -d'|' -f4)
+
+          echo "KEYSTORE_BASE64=$KEYSTORE_BASE64" >> $GITHUB_ENV
+          echo "KEYSTORE_PASSWORD=$KEYSTORE_PASSWORD" >> $GITHUB_ENV
+          echo "KEY_ALIAS=$KEY_ALIAS" >> $GITHUB_ENV
+          echo "KEY_PASSWORD=$KEY_PASSWORD" >> $GITHUB_ENV
+
+          echo "::add-mask::$KEYSTORE_BASE64"
+          echo "::add-mask::$KEYSTORE_PASSWORD"
+          echo "::add-mask::$KEY_ALIAS"
+          echo "::add-mask::$KEY_PASSWORD"
+
+          echo "✅ Keystore parameters extracted from KEYSTORE_SET"
+        else
+          echo "ℹ️ KEYSTORE_SET not provided, using separate secrets."
+          echo "KEYSTORE_BASE64=$SECRET_KEYSTORE_BASE64" >> $GITHUB_ENV
+          echo "KEYSTORE_PASSWORD=$SECRET_KEYSTORE_PASSWORD" >> $GITHUB_ENV
+          echo "KEY_ALIAS=$SECRET_KEY_ALIAS" >> $GITHUB_ENV
+          echo "KEY_PASSWORD=$SECRET_KEY_PASSWORD" >> $GITHUB_ENV
+        fi
+    - name: Check Secrets
+      run: |
+        echo "🔍 Checking required secrets..."
+        MISSING=0
+
+        check_secret() {
+          if [ -z "$1" ]; then
+            echo "❌ Missing secret: $2"
+            MISSING=1
+          fi
+        }
+
+        # Check secrets
+
+        check_secret "$KEYSTORE_BASE64" "KEYSTORE_BASE64"
+        check_secret "$KEYSTORE_PASSWORD" "KEYSTORE_PASSWORD"
+        check_secret "$KEY_ALIAS" "KEY_ALIAS"
+        check_secret "$KEY_PASSWORD" "KEY_PASSWORD"
+
+        if [ "$MISSING" -eq 1 ]; then
+          echo "🛑 Missing required secrets. Stopping build."
+          exit 1
+        fi
+
+        echo "✅ All required secrets are present."
+    - name: Decode keystore file
+      run: |
+        mkdir -p "$RUNNER_TEMP/keystore"
+        printf '%s' "$KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/keystore/keystore.jks"
+    - name: Validating keystore, alias and password
+      run: |
+        echo "🔐 Validating keystore, alias and password"
+
+        # Create a dummy JAR file (quick method using zip)
+        echo "test" > dummy.txt
+        zip -q dummy.jar dummy.txt
+        rm dummy.txt
+
+        # Attempt to validate using jarsigner
+        JARSIGNER_LOG=$(mktemp)
+        if ! jarsigner \
+            -keystore "$RUNNER_TEMP/keystore/keystore.jks" \
+            -storepass "$KEYSTORE_PASSWORD" \
+            -keypass "$KEY_PASSWORD" \
+            dummy.jar "$KEY_ALIAS" > "$JARSIGNER_LOG" 2>&1; then
+          echo "❌ Either KEYSTORE_BASE64, KEYSTORE_PASSWORD, KEY_PASSWORD, or KEY_ALIAS is incorrect"
+          echo "🔍 jarsigner error output:"
+          cat "$JARSIGNER_LOG"
+          rm -f "$JARSIGNER_LOG" dummy.jar
+          exit 1
+        fi
+        rm -f "$JARSIGNER_LOG" dummy.jar
+        echo "✅ Keystore, alias, and key password are valid."
+
+        echo "✅ Keystore and credentials validated."
+    - name: Check signing certificate matches existing APK
+      run: |
+        keytool -exportcert -keystore "$RUNNER_TEMP/keystore/keystore.jks" \
+          -storepass:env KEYSTORE_PASSWORD -alias "$KEY_ALIAS" \
+          -file "$RUNNER_TEMP/keystore/certificate.der"
+        EXPECTED="d6bf11fc569083e33dfc07733b579e4491beaa4ac3285b80fbe73e03c2691bb8"
+        ACTUAL=$(sha256sum "$RUNNER_TEMP/keystore/certificate.der" | cut -d' ' -f1)
+        if [ "$ACTUAL" != "$EXPECTED" ]; then
+          echo "Signing certificate differs from your existing 3.3.2.1 APK. Check KEY_ALIAS and KEYSTORE_BASE64."
+          exit 1
+        fi
+        echo "Signing certificate matches your existing APK."
+    - name: Build signed phone and Wear APKs
+      run: |
+        chmod +x gradlew
+        ./gradlew :app:assembleFullRelease :wear:assembleFullRelease   -Dorg.gradle.jvmargs="-Xmx5g -XX:+UseParallelGC -Xss4m"   -Dkotlin.daemon.jvm.options="-Xmx1g"   -Pkotlin.compiler.execution.strategy="in-process"   -Dorg.gradle.workers.max=2   -Pandroid.injected.signing.store.file="$RUNNER_TEMP/keystore/keystore.jks"   -Pandroid.injected.signing.store.password="$KEYSTORE_PASSWORD"   -Pandroid.injected.signing.key.alias="$KEY_ALIAS"   -Pandroid.injected.signing.key.password="$KEY_PASSWORD"
+    - name: Name APK assets
+      run: |
+        mv app/build/outputs/apk/full/release/*.apk "aaps-${RELEASE_TAG}.apk"
+        mv wear/build/outputs/apk/full/release/*.apk "aaps-wear-${RELEASE_TAG}.apk"
+    - name: Publish complete GitHub release
+      env:
+        GH_TOKEN: ${{ github.token }}
+      run: |
+        set -euo pipefail
+        SOURCE_COMMIT=$(git rev-parse HEAD)
+        if [ -z "${RELEASE_TAG:-}" ]; then
+          RELEASE_TAG="manual-${GITHUB_RUN_ID}"
+          RELEASE_TITLE="AAPS ${VERSION}${VERSION_SUFFIX} (manual build)"
+          PRERELEASE=true
+        fi
+        printf 'Source ref: %s
+        Source commit: %s
+        Build workflow: https://github.com/%s/actions/runs/%s
+        '   "${SOURCE_REF:-manual}" "$SOURCE_COMMIT" "$GITHUB_REPOSITORY" "$GITHUB_RUN_ID" > "$RUNNER_TEMP/release-notes.md"
+        if gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" > /dev/null 2>&1; then
+          DRAFT=$(gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --json isDraft --jq .isDraft)
+          if [ "$DRAFT" != "true" ]; then
+            echo "Release already published: $RELEASE_TAG"
+            exit 0
+          fi
+        else
+          FLAGS=(--draft --latest=false)
+          if [ "$PRERELEASE" = "true" ]; then FLAGS+=(--prerelease); fi
+          gh release create "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY"     --target "$CONTROLLER_SHA" --title "$RELEASE_TITLE"     --notes-file "$RUNNER_TEMP/release-notes.md" "${FLAGS[@]}"
+        fi
+        gh release upload "$RELEASE_TAG" ./*.apk --repo "$GITHUB_REPOSITORY" --clobber
+        gh release edit "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --draft=false --latest=false
