@@ -5,7 +5,7 @@ zijn vastgelegd. Android-eisen, AAPS-versiecontrole en doseringscode blijven int
 
 - Android 8: upstream `v2.8.2.1`, commit
   `fb9325384e96cdf3b508468584156aa9971638da`; geen gewijzigde AAPS-bronbestanden.
-- Android 7: [compat-2.6.2](https://github.com/smokkelaar/AndroidAPSversion/tree/d370673441a4c8bd49d154b044c5c9367471b130),
+- Android 7: [compat-2.6.2](https://github.com/smokkelaar/AndroidAPSversion/tree/03ce42fc4c8e622f8c5619312ad17d0421b67523),
   afgeleid van upstream-tag `2.6.2`, commit
   `972fdbfe9e40853afc09eb06f83045c95acfb53c`. De volledige wijziging staat in
   `android7.patch`: de verdwenen Fabric-buildplugin en de Jacoco-plugin voor
