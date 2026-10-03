@@ -5,14 +5,18 @@ from pathlib import Path
 import subprocess
 
 
+def select_pending(selected, pages):
+    published = {release['tag_name'] for page in pages for release in page if not release['draft']}
+    return [entry for entry in selected if entry['release_tag'] not in published]
+
+
 def main():
     selected = json.loads(Path('.github/selected-releases.json').read_text())['releases']
     pages = json.loads(subprocess.check_output([
         'gh', 'api', '--paginate', '--slurp',
         f"repos/{os.environ['GITHUB_REPOSITORY']}/releases?per_page=100"
     ], text=True))
-    published = {release['tag_name'] for page in pages for release in page if not release['draft']}
-    pending = [entry for entry in selected if entry['release_tag'] not in published]
+    pending = select_pending(selected, pages)
     with open(os.environ['GITHUB_OUTPUT'], 'a') as output:
         output.write('matrix=' + json.dumps({'include': pending}) + '\n')
         output.write(f'count={len(pending)}\n')

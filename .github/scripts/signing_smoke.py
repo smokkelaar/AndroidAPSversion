@@ -50,6 +50,14 @@ def main():
             raise
         assert len(list((root / 'signed').glob('*.apk'))) == 2
         print('Unsigned phone and previously signed Wear APKs both re-signed and verified successfully.')
+        for apk in (root / 'signed').glob('*.apk'):
+            apk.unlink()
+        env['MIN_PHONE_SDK'] = '24'
+        rejected = subprocess.run(['bash', '-euo', 'pipefail', '-c', script],
+                                  cwd=root, env=env, capture_output=True, text=True)
+        assert rejected.returncode != 0, 'Mismatched minimum SDK was accepted'
+        assert 'Phone minimum SDK mismatch: expected 24, got 23' in rejected.stderr, rejected.stderr
+        print('APK with a mismatched minimum SDK rejected before publication.')
 
 
 if __name__ == '__main__':

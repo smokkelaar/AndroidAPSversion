@@ -191,7 +191,10 @@ jobs:
           test "$DIGESTS" = 'd6bf11fc569083e33dfc07733b579e4491beaa4ac3285b80fbe73e03c2691bb8'
           if [ "$module" = phone ] && [ -n "$MIN_PHONE_SDK" ]; then
             ACTUAL_MIN=$("$TOOLS/aapt" dump badging "$OUTPUT" | sed -n "s/^sdkVersion:'\([0-9]*\)'/\1/p")
-            test "$ACTUAL_MIN" = "$MIN_PHONE_SDK"
+            if [ "$ACTUAL_MIN" != "$MIN_PHONE_SDK" ]; then
+              echo "Phone minimum SDK mismatch: expected $MIN_PHONE_SDK, got $ACTUAL_MIN" >&2
+              exit 1
+            fi
           fi
         done
     - name: Publish verified APKs
