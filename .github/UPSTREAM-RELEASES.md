@@ -1,7 +1,7 @@
 # Automatische upstream builds
 
-De workflow **Upstream Releases** controleert `nightscout/AndroidAPS` elke
-15 minuten op nieuwe tags en nieuwe commits op `master`, `dev` en `dev3`.
+De workflow **Upstream Releases** controleert `nightscout/AndroidAPS` ieder
+uur op nieuwe tags en nieuwe commits op `master`, `dev` en `dev3`.
 Na samenvoegen naar de standaardbranch (`master`) kan de workflow ook direct
 worden gestart via Actions → Upstream Releases → Run workflow.
 
