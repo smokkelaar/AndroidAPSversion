@@ -28,8 +28,9 @@ class SelectionTests(unittest.TestCase):
 
     def test_only_pinned_selection_is_built(self):
         count, pending = self.invoke([[{'tag_name': 'unselected-historical-tag', 'draft': False}]])
-        selected = json.loads(CATALOG.read_text(encoding='utf-8'))['releases']
-        self.assertEqual(count, 8)
+        selected = [e for e in json.loads(CATALOG.read_text(encoding='utf-8'))['releases']
+                    if e['channel'] not in ('master', 'dev', 'dev3')]
+        self.assertEqual(count, 5)
         self.assertEqual(pending, selected)
         self.assertTrue(all(len(entry['sha']) == 40 for entry in pending))
 
@@ -39,11 +40,11 @@ class SelectionTests(unittest.TestCase):
                  [{'tag_name': selected[1]['release_tag'], 'draft': True},
                   {'tag_name': selected[2]['release_tag'], 'draft': False}]]
         count, pending = self.invoke(pages)
-        self.assertEqual(count, 6)
+        self.assertEqual(count, 5)
         tags = {entry['release_tag'] for entry in pending}
         self.assertNotIn(selected[0]['release_tag'], tags)
         self.assertNotIn(selected[2]['release_tag'], tags)
-        self.assertIn(selected[1]['release_tag'], tags)
+        self.assertNotIn(selected[1]['release_tag'], tags)  # Never rebuild an old branch snapshot.
 
     def test_complete_catalog_has_empty_matrix(self):
         selected = json.loads(CATALOG.read_text(encoding='utf-8'))['releases']

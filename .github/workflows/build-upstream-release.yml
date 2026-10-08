@@ -117,7 +117,7 @@ jobs:
       artifact_name: apk-${{ github.run_id }}-${{ github.run_attempt }}-${{ inputs.release_tag
         }}
       release_tag: ${{ inputs.release_tag }}
-      release_title: AAPS ${{ needs.build.outputs.version }} / ${{ inputs.channel }}
+      release_title: ${{ contains(fromJSON('["master", "dev", "dev3"]'), inputs.channel) && format('AAPS {0} – nieuwste build ({1})', inputs.channel, needs.build.outputs.version) || format('AAPS {0}', needs.build.outputs.version) }}
       source_ref: ${{ inputs.source_ref }}
       source_sha: ${{ inputs.source_sha }}
       source_repository: ${{ inputs.source_repository }}

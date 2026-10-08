@@ -3,11 +3,14 @@ import json
 import os
 from pathlib import Path
 import subprocess
+from plan_upstream import CHANNELS
 
 
 def select_pending(selected, pages):
     published = {release['tag_name'] for page in pages for release in page if not release['draft']}
-    return [entry for entry in selected if entry['release_tag'] not in published]
+    # Branch snapshots are now owned by the hourly planner; never restore an old head.
+    return [entry for entry in selected if entry['channel'] not in CHANNELS
+            and entry['release_tag'] not in published]
 
 
 def main():

@@ -37,6 +37,9 @@ permissions:
 jobs:
   publish:
     runs-on: ubuntu-24.04
+    concurrency:
+      group: publish-release-${{ inputs.release_tag }}
+      cancel-in-progress: false
     timeout-minutes: 20
     permissions:
       contents: write
@@ -63,6 +66,14 @@ jobs:
       run: |
         [[ "$RELEASE_TAG" =~ ^[A-Za-z0-9][A-Za-z0-9._-]{0,200}$ ]]
         [[ "$SOURCE_COMMIT" =~ ^[a-f0-9]{40}$ ]]
+        ROLLING=false
+        ASSET_TAG="$RELEASE_TAG"
+        if [[ "$RELEASE_TAG" =~ ^upstream-(master|dev|dev3)$ ]]; then
+          test "$RELEASE_TAG" = "upstream-$SOURCE_REF"
+          ROLLING=true
+          ASSET_TAG="${RELEASE_TAG}-${SOURCE_COMMIT}"
+        fi
+        printf 'ROLLING=%s\nASSET_TAG=%s\n' "$ROLLING" "$ASSET_TAG" >> "$GITHUB_ENV"
         test -f incoming/phone.apk && test ! -L incoming/phone.apk
         test -f incoming/wear.apk && test ! -L incoming/wear.apk
     - uses: actions/setup-java@v5
@@ -181,7 +192,7 @@ jobs:
         for module in phone wear; do
           SUFFIX=""
           if [ "$module" = wear ]; then SUFFIX="-wear"; fi
-          OUTPUT="signed/aaps${SUFFIX}-${RELEASE_TAG}.apk"
+          OUTPUT="signed/aaps${SUFFIX}-${ASSET_TAG}.apk"
           "$TOOLS/zipalign" -f -P 16 4 "incoming/${module}.apk" "$RUNNER_TEMP/${module}-aligned.apk"
           "$TOOLS/apksigner" sign --ks "$RUNNER_TEMP/keystore/keystore.jks" \
             --ks-pass env:KEYSTORE_PASSWORD --ks-key-alias "$KEY_ALIAS" --key-pass env:KEY_PASSWORD \
@@ -206,6 +217,7 @@ jobs:
         Source commit: %s
         Build workflow: https://github.com/%s/actions/runs/%s
         '   "${SOURCE_REF:-manual}" "$SOURCE_COMMIT" "$GITHUB_REPOSITORY" "$GITHUB_RUN_ID" > "$RUNNER_TEMP/release-notes.md"
+        printf '\nBuilt at: %s (UTC)\n' "$(date -u '+%Y-%m-%d %H:%M')" >> "$RUNNER_TEMP/release-notes.md"
         if [ -n "$ANDROID_NOTE" ]; then printf '\nAndroid compatibility: %s\n' "$ANDROID_NOTE" >> "$RUNNER_TEMP/release-notes.md"; fi
         if [ -n "$SOURCE_REPOSITORY" ]; then
           [[ "$SOURCE_REPOSITORY" =~ ^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$ ]]
@@ -213,7 +225,7 @@ jobs:
         fi
         if gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" > /dev/null 2>&1; then
           DRAFT=$(gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --json isDraft --jq .isDraft)
-          if [ "$DRAFT" != "true" ]; then
+          if [ "$DRAFT" != "true" ] && [ "$ROLLING" != "true" ]; then
             echo "Release already published: $RELEASE_TAG"
             exit 0
           fi
@@ -222,8 +234,10 @@ jobs:
           if [ "$PRERELEASE" = "true" ]; then FLAGS+=(--prerelease); fi
           gh release create "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY"     --target "$CONTROLLER_SHA" --title "$RELEASE_TITLE"     --notes-file "$RUNNER_TEMP/release-notes.md" "${FLAGS[@]}"
         fi
-        gh release upload "$RELEASE_TAG" "signed/aaps-${RELEASE_TAG}.apk" "signed/aaps-wear-${RELEASE_TAG}.apk" --repo "$GITHUB_REPOSITORY" --clobber
-        gh release edit "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --draft=false --latest=false
+        # New commit-specific assets leave the previous working pair intact on failure.
+        gh release upload "$RELEASE_TAG" "signed/aaps-${ASSET_TAG}.apk" "signed/aaps-wear-${ASSET_TAG}.apk" --repo "$GITHUB_REPOSITORY" --clobber
+        gh release edit "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --draft=false --latest=false \
+          --title "$RELEASE_TITLE" --notes-file "$RUNNER_TEMP/release-notes.md"
     - name: Remove signing material
       if: always()
       run: |
