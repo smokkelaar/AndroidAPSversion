@@ -1,7 +1,7 @@
 # Automatische upstream builds
 
 De workflow **Upstream Releases** controleert `nightscout/AndroidAPS` ieder
-uur op nieuwe tags en nieuwe commits op `master`, `dev` en `dev3`.
+uur op nieuwe officiële releases en nieuwe commits op `master`, `dev` en `dev3`.
 Na samenvoegen naar de standaardbranch (`master`) kan de workflow ook direct
 worden gestart via Actions → Upstream Releases → Run workflow.
 
@@ -9,15 +9,18 @@ worden gestart via Actions → Upstream Releases → Run workflow.
 
 `.github/upstream-baseline.json` bevat de upstream-stand bij het voorbereiden
 van deze wijziging. Alle toen bestaande tags worden permanent overgeslagen.
-De toenmalige branchcommits worden evenmin gebouwd. Alleen veranderingen vanaf
-dit startpunt leveren builds op; oude releases worden niet ingehaald.
+Voor branches wordt de huidige stand gebouwd zodra de vaste branchrelease ontbreekt.
+Dit zorgt ook voor de overstap vanaf de oude afzonderlijke branchreleases.
+Oude officiële releases worden niet automatisch ingehaald.
 Bewaar dit bestand: opnieuw vastleggen zou nieuwe, nog niet gebouwde versies
 kunnen overslaan.
 
-* **tags**: elke nieuwe upstream-tag levert een release op. Tags met een `-`
-  in de naam (zoals ontwikkelversies) worden als prerelease gepubliceerd.
-* **master**, **dev**, **dev3**: elke nieuwe waargenomen branchstand levert
-  een afzonderlijke prerelease op, herkenbaar aan kanaal en volledige commit-SHA.
+* **tags**: alleen gepubliceerde upstream-releases zonder prerelease-markering
+  leveren een afzonderlijke release op, met titel `AAPS <versie>`.
+  Losse tags, conceptreleases en upstream-prereleases worden overgeslagen.
+* **master**, **dev**, **dev3**: elke nieuwe waargenomen branchstand werkt
+  dezelfde prerelease bij: `upstream-master`, `upstream-dev` of `upstream-dev3`.
+  De titel is bijvoorbeeld `AAPS dev – nieuwste build (4.0.0-dev-d)`.
   Als meerdere commits tussen twee controles binnenkomen, wordt de nieuwste
   stand gebouwd. Tussengelegen commits worden niet apart gebouwd.
 
@@ -33,12 +36,12 @@ vastgelegde commit; de fork hoeft daarvoor niet met upstream te worden gesynchro
 
 ## Publicatie en herstel
 
-Automatische release-tags beginnen met `upstream-tag-`, `upstream-master-`,
-`upstream-dev-` of `upstream-dev3-`. De oorspronkelijke ref, broncommit en buildrun
+Officiële automatische release-tags beginnen met `upstream-tag-`.
+De oorspronkelijke ref, broncommit, UTC-bouwtijd en buildrun
 staan in de releasebeschrijving. GitHub's automatisch gegenereerde broncodearchieven
 horen bij de workflowcommit in deze fork; de APK-bron is de vermelde upstream-commit.
 
-Een release blijft concept totdat beide APK's zijn geüpload. Alleen gepubliceerde
+Een nieuwe release blijft concept totdat beide APK's zijn geüpload. Alleen gepubliceerde
 releases tellen als geslaagd. Een mislukte build of upload wordt bij een volgende
 controle opnieuw geprobeerd; een bestaand concept wordt afgemaakt. Bij een mislukte
 branchbuild kan een nieuwere branchstand de vorige poging vervangen.
@@ -50,7 +53,19 @@ mislukken voordat er een conceptrelease is gemaakt, komen latere tags aan bod.
 Verwijder deze branch niet: het is de blijvende wachtrijadministratie.
 Voltooide en vervangen refs worden uit deze administratie verwijderd, zodat
 het bestand uitsluitend pogingen voor de actuele wachtrij bewaart.
-Releases worden bewaard.
+Officiële releases worden bewaard. Bij een bestaande branchrelease worden eerst
+beide nieuwe APK's met commit-specifieke bestandsnamen toegevoegd; pas daarna worden
+titel en beschrijving bijgewerkt. Bij een mislukte upload blijft de vorige werkende
+APK-set beschikbaar. De broncommit in de beschrijving registreert welke stand is
+gepubliceerd; dezelfde stand wordt niet ieder uur opnieuw gebouwd.
+
+Na de builds controleert een aparte opruimjob of een gepubliceerde branchrelease
+beide APK's van de geregistreerde commit bevat. Alleen dan verwijdert hij oude
+APK's en de oude automatische releases/tags voor diezelfde branch, met patroon
+`upstream-<branch>-<40-tekens-SHA>`. Andere branches, officiële en handmatige
+releases blijven behouden. Opruimen wordt bij iedere geslaagde uurcontrole opnieuw
+geprobeerd, ook zonder nieuwe builds. De eenmalige Seed Selected Releases-workflow
+bouwt geen oude branchsnapshots meer.
 Automatische en handmatige builds markeren releases niet als GitHub's algemene Latest.
 
 De bestaande handmatige AAPS-, Branch-, PR- en Cherry Pick-workflows publiceren

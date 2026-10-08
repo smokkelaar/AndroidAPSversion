@@ -38,6 +38,20 @@ jobs:
     secrets: inherit
     permissions:
       contents: write
+  cleanup:
+    needs: [discover, build]
+    if: always() && needs.discover.result == 'success'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+    - uses: actions/checkout@v5
+      with:
+        persist-credentials: false
+    - name: Remove replaced automatic branch releases and APKs
+      env:
+        GH_TOKEN: ${{ github.token }}
+      run: python3 .github/scripts/plan_upstream.py --cleanup
 'on':
   schedule:
   - cron: 7 * * * *
