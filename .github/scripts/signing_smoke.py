@@ -15,7 +15,7 @@ def main():
     sdk = Path(os.environ['ANDROID_HOME'])
     tools = sorted((sdk / 'build-tools').iterdir(), key=lambda p: tuple(int(x) for x in p.name.split('.') if x.isdigit()))[-1]
     platform = sorted((sdk / 'platforms').glob('*/android.jar'))[-1]
-    workflow = yaml.safe_load((Path(__file__).resolve().parents[1] / 'workflows/sign-publish-apks.yml').read_text())
+    workflow = yaml.safe_load((Path(__file__).resolve().parents[1] / 'workflows/sign-publish-apks.yml').read_text(encoding='utf-8'))
     step = next(s for s in workflow['jobs']['publish']['steps'] if s.get('name', '').startswith('Align, sign'))
     with tempfile.TemporaryDirectory() as directory:
         root = Path(directory)
@@ -40,6 +40,7 @@ def main():
         expected = hashlib.sha256((root / 'certificate.der').read_bytes()).hexdigest()
         script = step['run'].replace('d6bf11fc569083e33dfc07733b579e4491beaa4ac3285b80fbe73e03c2691bb8', expected)
         env = {**os.environ, 'RUNNER_TEMP': str(root), 'RELEASE_TAG': 'fixture-test',
+               'ASSET_TAG': 'fixture-test-' + 'a' * 40,
                'KEYSTORE_PASSWORD': password, 'KEY_PASSWORD': password, 'KEY_ALIAS': 'fixture', 'MIN_PHONE_SDK': '23'}
         try:
             subprocess.run(['bash', '-euo', 'pipefail', '-c', script], cwd=root, env=env, check=True)
@@ -48,7 +49,8 @@ def main():
             for log in root.glob('*-verify.txt'):
                 print(log.read_text(), flush=True)
             raise
-        assert len(list((root / 'signed').glob('*.apk'))) == 2
+        assert {p.name for p in (root / 'signed').glob('*.apk')} == {
+            f"aaps-{env['ASSET_TAG']}.apk", f"aaps-wear-{env['ASSET_TAG']}.apk"}
         print('Unsigned phone and previously signed Wear APKs both re-signed and verified successfully.')
         for apk in (root / 'signed').glob('*.apk'):
             apk.unlink()
