@@ -68,7 +68,7 @@ jobs:
         [[ "$SOURCE_COMMIT" =~ ^[a-f0-9]{40}$ ]]
         ROLLING=false
         ASSET_TAG="$RELEASE_TAG"
-        if [[ "$RELEASE_TAG" =~ ^upstream-(master|dev|dev3)$ ]]; then
+        if [[ "$RELEASE_TAG" =~ ^upstream-(master|dev|dev3|v4\.0\.0-beta1)$ ]]; then
           test "$RELEASE_TAG" = "upstream-$SOURCE_REF"
           ROLLING=true
           ASSET_TAG="${RELEASE_TAG}-${SOURCE_COMMIT}"

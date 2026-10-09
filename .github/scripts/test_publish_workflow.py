@@ -9,9 +9,11 @@ import yaml
 
 
 class PublicationTests(unittest.TestCase):
-    def invoke(self, rolling, fail_upload=False):
+    def invoke(self, rolling, fail_upload=False, channel='dev'):
         workflow = yaml.safe_load((Path(__file__).resolve().parents[1] /
                                    'workflows/sign-publish-apks.yml').read_text(encoding='utf-8'))
+        validation = next(s['run'] for s in workflow['jobs']['publish']['steps']
+                          if s.get('name') == 'Validate publication inputs')
         script = next(s['run'] for s in workflow['jobs']['publish']['steps']
                       if s.get('name') == 'Publish verified APKs')
         fake = '''
@@ -28,15 +30,20 @@ gh() {
         if not bash:
             self.skipTest('bash is unavailable')
         with tempfile.TemporaryDirectory() as directory:
-            env = {**os.environ, 'RUNNER_TEMP': '.', 'RELEASE_TAG': 'upstream-dev' if rolling else 'official-tag',
+            incoming = Path(directory) / 'incoming'
+            incoming.mkdir()
+            (incoming / 'phone.apk').touch()
+            (incoming / 'wear.apk').touch()
+            env = {**os.environ, 'RUNNER_TEMP': '.', 'GITHUB_ENV': 'github-env',
+                   'RELEASE_TAG': f'upstream-{channel}' if rolling else 'official-tag',
                    'RELEASE_TITLE': 'AAPS dev – nieuwste build (4.0.0-dev-d)',
-                   'SOURCE_REF': 'dev', 'SOURCE_COMMIT': 'b' * 40,
+                   'SOURCE_REF': channel, 'SOURCE_COMMIT': 'b' * 40,
                    'CONTROLLER_SHA': 'c' * 40, 'GITHUB_REPOSITORY': 'owner/repo',
                    'GITHUB_RUN_ID': '123', 'ANDROID_NOTE': 'API 31',
                    'SOURCE_REPOSITORY': 'nightscout/AndroidAPS', 'PRERELEASE': 'true',
-                   'ROLLING': str(rolling).lower(), 'FAIL_UPLOAD': str(fail_upload).lower(),
-                   'ASSET_TAG': 'upstream-dev-' + 'b' * 40 if rolling else 'official-tag'}
-            result = subprocess.run([bash, '--noprofile', '--norc'], input=fake + script,
+                   'FAIL_UPLOAD': str(fail_upload).lower()}
+            result = subprocess.run([bash, '--noprofile', '--norc'],
+                                    input='set -euo pipefail\n' + fake + validation + script,
                                     text=True, capture_output=True, cwd=directory, env=env)
             calls = (Path(directory) / 'calls.txt').read_text()
             return result, calls
@@ -48,6 +55,13 @@ gh() {
         self.assertIn('aaps-wear-upstream-dev-' + 'b' * 40 + '.apk', calls)
         self.assertLess(calls.index('release upload'), calls.index('release edit'))
         self.assertIn('--notes-file', calls)
+
+    def test_beta_rolling_release_is_updated_after_upload(self):
+        result, calls = self.invoke(True, channel='v4.0.0-beta1')
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn('aaps-upstream-v4.0.0-beta1-' + 'b' * 40 + '.apk', calls)
+        self.assertIn('aaps-wear-upstream-v4.0.0-beta1-' + 'b' * 40 + '.apk', calls)
+        self.assertLess(calls.index('release upload'), calls.index('release edit'))
 
     def test_failed_upload_does_not_publish_new_notes_or_delete_old_assets(self):
         result, calls = self.invoke(True, fail_upload=True)

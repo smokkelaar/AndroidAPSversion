@@ -11,7 +11,7 @@ from urllib.error import HTTPError
 from urllib.request import Request, urlopen
 
 UPSTREAM = "nightscout/AndroidAPS"
-CHANNELS = ("master", "dev", "dev3")
+CHANNELS = ("master", "dev", "dev3", "v4.0.0-beta1")
 STATE_BRANCH = "upstream-release-state"
 
 
