@@ -51,6 +51,23 @@ class PlannerTests(unittest.TestCase):
         pages = [[{'tag_name': f'upstream-dev-{sha}', 'draft': False}]]
         self.assertEqual(len(plan(self.baseline, {'refs/heads/dev': sha}, published_keys(pages), set())), 1)
 
+    def test_beta_branch_builds_and_tracks_new_commits(self):
+        channel = 'v4.0.0-beta1'
+        sha = 'b' * 40
+        current = {f'refs/heads/{channel}': sha}
+        expected = {'channel': channel, 'ref': channel, 'sha': sha,
+                    'release_tag': f'upstream-{channel}'}
+        self.assertEqual(plan(self.baseline, current, set(), set()), [expected])
+        pages = [[{'tag_name': expected['release_tag'], 'draft': False,
+                   'body': f'Source commit: {sha}\n'}]]
+        published = published_keys(pages)
+        self.assertEqual(plan(self.baseline, current, published, set()), [])
+        current[f'refs/heads/{channel}'] = 'e' * 40
+        self.assertEqual(plan(self.baseline, current, published, set()),
+                         [{**expected, 'sha': 'e' * 40}])
+        pages[0][0]['draft'] = True
+        self.assertEqual(published_keys(pages), set())
+
     def test_cleanup_preserves_other_channels_and_official_releases(self):
         sha = 'b' * 40
         key = f'upstream-dev-{sha}'
