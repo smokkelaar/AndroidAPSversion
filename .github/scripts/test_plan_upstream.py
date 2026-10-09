@@ -83,8 +83,7 @@ class PlannerTests(unittest.TestCase):
         with patch('plan_upstream.api') as call:
             cleanup_rolling(pages, 'owner/repo')
             self.assertEqual([c.args[0] for c in call.call_args_list], [
-                'repos/owner/repo/releases/assets/12', 'repos/owner/repo/releases/2',
-                'repos/owner/repo/git/refs/tags/upstream-dev-' + 'a' * 40])
+                'repos/owner/repo/releases/assets/12', 'repos/owner/repo/releases/2'])
         for damage in ['draft', 'missing-apk', 'missing-commit']:
             with self.subTest(damage=damage), patch('plan_upstream.api') as call:
                 broken = {**rolling}

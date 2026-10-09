@@ -121,7 +121,8 @@ def cleanup_rolling(pages, repository):
             old_tag = release["tag_name"]
             if re.fullmatch(re.escape(tag) + r"-[a-f0-9]{40}", old_tag):
                 api(f"repos/{repository}/releases/{release['id']}", "DELETE")
-                api(f"repos/{repository}/git/refs/tags/{old_tag}", "DELETE", missing_ok=True)
+                # Published tags are immutable under the repository ruleset.
+                # Keep the source reference after removing its replaced release.
                 print(f"Removed replaced branch release: {old_tag}")
 
 
