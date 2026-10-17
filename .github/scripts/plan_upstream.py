@@ -169,9 +169,13 @@ def main():
         "gh", "api", "--paginate", "--slurp",
         f"repos/{UPSTREAM}/releases?per_page=100"
     ], text=True))
-    official_tags = {r["tag_name"] for page in upstream_pages for r in page
-                     if not r["draft"] and not r["prerelease"]}
-    pending = plan(baseline, read_refs(refs), published, official_tags)
+    # Published beta/RC releases are eligible too; only drafts are excluded.
+    upstream_releases = {r["tag_name"]: r for page in upstream_pages for r in page
+                         if not r["draft"]}
+    pending = plan(baseline, read_refs(refs), published, upstream_releases)
+    for item in pending:
+        item["source_prerelease"] = (item["channel"] == "tags" and
+                                     upstream_releases[item["ref"]]["prerelease"])
     attempts, file_sha = load_attempts(os.environ["GITHUB_REPOSITORY"])
     batch, updated = choose_batch(pending, attempts)
     if batch or updated != attempts:

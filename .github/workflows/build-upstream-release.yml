@@ -15,6 +15,10 @@ name: Build Upstream Release
       channel:
         required: true
         type: string
+      source_prerelease:
+        required: false
+        default: false
+        type: boolean
       release_tag:
         required: true
         type: string
@@ -123,6 +127,6 @@ jobs:
       source_repository: ${{ inputs.source_repository }}
       min_phone_sdk: ${{ needs.build.outputs.min_sdk }}
       android_note: 'Minimum Android API ${{ needs.build.outputs.min_sdk }}. ${{ inputs.android_note }}'
-      prerelease: ${{ (inputs.channel != 'tags' && inputs.channel != 'legacy') || contains(inputs.source_ref, '-')
+      prerelease: ${{ inputs.source_prerelease || (inputs.channel != 'tags' && inputs.channel != 'legacy') || contains(inputs.source_ref, '-')
         }}
     secrets: inherit
