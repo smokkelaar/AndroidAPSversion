@@ -1,6 +1,11 @@
+import json
+import os
+import sys
+import tempfile
 import unittest
+from pathlib import Path
 from unittest.mock import patch
-from plan_upstream import choose_batch, cleanup_rolling, plan, published_keys, read_refs, release_tag
+from plan_upstream import choose_batch, cleanup_rolling, main, plan, published_keys, read_refs, release_tag
 
 
 class PlannerTests(unittest.TestCase):
@@ -28,12 +33,50 @@ class PlannerTests(unittest.TestCase):
         self.assertEqual(plan(self.baseline, current, {pending[0]['release_tag']}, {'4.0.0'}), [])
         self.assertEqual(plan(self.baseline, current, set(), {'4.0.0'}), pending)
 
-    def test_only_published_official_releases_are_selected(self):
+    def test_only_tags_with_published_releases_are_selected(self):
         current = {'refs/tags/4.0.0': 'a' * 40,
                    'refs/tags/4.0.0-rc1': 'b' * 40,
                    'refs/tags/unreleased': 'c' * 40}
         self.assertEqual([r['ref'] for r in plan(self.baseline, current, set(), {'4.0.0'})], ['4.0.0'])
         self.assertEqual(plan(self.baseline, current, set(), set()), [])
+
+    def test_discovery_includes_prereleases_and_preserves_their_status(self):
+        releases = [[
+            {'tag_name': '4.0.0', 'draft': False, 'prerelease': False},
+            {'tag_name': '4.0.0-rc1', 'draft': False, 'prerelease': True},
+            {'tag_name': 'draft-rc', 'draft': True, 'prerelease': True},
+        ], [
+            {'tag_name': '4.0.0-beta2', 'draft': False, 'prerelease': True},
+            {'tag_name': 'preview', 'draft': False, 'prerelease': True},
+            {'tag_name': '3.4.2.6', 'draft': False, 'prerelease': True},
+        ]]
+        refs = '\n'.join(f'{"e" * 40} refs/tags/{tag}' for tag in
+                         ['4.0.0', '4.0.0-rc1', 'draft-rc', '4.0.0-beta2',
+                          'preview', '3.4.2.6', 'unreleased'])
+        refs += '\n' + 'b' * 40 + ' refs/heads/dev\n'
+        with tempfile.TemporaryDirectory() as folder:
+            output = Path(folder) / 'output'
+            with patch.dict(os.environ, {'GITHUB_REPOSITORY': 'owner/repo',
+                                         'GITHUB_OUTPUT': str(output)}), \
+                    patch.object(sys, 'argv', ['plan_upstream.py']), \
+                    patch('plan_upstream.Path.read_text', return_value=json.dumps(self.baseline)), \
+                    patch('plan_upstream.subprocess.check_output', side_effect=[
+                        refs, '[[]]', json.dumps(releases)]), \
+                    patch('plan_upstream.load_attempts', return_value=({}, None)), \
+                    patch('plan_upstream.save_attempts'):
+                main()
+            values = dict(line.split('=', 1) for line in output.read_text().splitlines())
+        items = json.loads(values['matrix'])['include']
+        self.assertEqual(int(values['count']), 5)
+        self.assertEqual({item['ref']: item['source_prerelease'] for item in items},
+                         {'4.0.0': False, '4.0.0-rc1': True, '4.0.0-beta2': True,
+                          'preview': True, 'dev': False})
+        # Published prerelease builds use the same durable success ledger.
+        published = {item['release_tag'] for item in items if item['channel'] == 'tags'}
+        self.assertEqual(plan(self.baseline, read_refs(refs), published,
+                              {'4.0.0', '4.0.0-rc1', '4.0.0-beta2', 'preview'}),
+                         [{'channel': 'dev', 'ref': 'dev', 'sha': 'b' * 40,
+                           'release_tag': 'upstream-dev'}])
 
     def test_rolling_notes_prevent_rebuild_and_new_head_updates_same_tag(self):
         sha = 'b' * 40

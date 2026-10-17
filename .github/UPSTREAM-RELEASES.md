@@ -1,7 +1,7 @@
 # Automatische upstream builds
 
 De workflow **Upstream Releases** controleert `nightscout/AndroidAPS` ieder
-uur op nieuwe officiële releases en nieuwe commits op `master`, `dev`, `dev3`
+uur op nieuwe gepubliceerde releases (inclusief prereleases) en nieuwe commits op `master`, `dev`, `dev3`
 en `v4.0.0-beta1`.
 Na samenvoegen naar de standaardbranch (`master`) kan de workflow ook direct
 worden gestart via Actions → Upstream Releases → Run workflow.
@@ -16,9 +16,12 @@ Oude officiële releases worden niet automatisch ingehaald.
 Bewaar dit bestand: opnieuw vastleggen zou nieuwe, nog niet gebouwde versies
 kunnen overslaan.
 
-* **tags**: alleen gepubliceerde upstream-releases zonder prerelease-markering
+* **tags**: alle gepubliceerde upstream-releases, inclusief beta's en release candidates,
   leveren een afzonderlijke release op, met titel `AAPS <versie>`.
-  Losse tags, conceptreleases en upstream-prereleases worden overgeslagen.
+  De prerelease-markering van upstream blijft behouden, ook bij tags zonder koppelteken.
+  Losse tags, conceptreleases en tags uit de historische baseline worden overgeslagen.
+  Bijvoorbeeld `4.0.0-rc1` wordt als eigen prerelease gebouwd; hiervoor hoeft de
+  branch `v4.0.0-rc1` niet aan de branchkanalen te worden toegevoegd.
 * **master**, **dev**, **dev3**, **v4.0.0-beta1**: elke nieuwe waargenomen branchstand werkt
   dezelfde prerelease bij: `upstream-master`, `upstream-dev`, `upstream-dev3`
   of `upstream-v4.0.0-beta1`.

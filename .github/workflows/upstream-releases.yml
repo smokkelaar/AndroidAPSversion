@@ -34,6 +34,7 @@ jobs:
       source_sha: ${{ matrix.sha }}
       source_ref: ${{ matrix.ref }}
       channel: ${{ matrix.channel }}
+      source_prerelease: ${{ matrix.source_prerelease }}
       release_tag: ${{ matrix.release_tag }}
     secrets: inherit
     permissions:
