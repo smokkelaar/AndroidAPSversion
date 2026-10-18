@@ -55,5 +55,5 @@ jobs:
       run: python3 .github/scripts/plan_upstream.py --cleanup
 'on':
   schedule:
-  - cron: 7 * * * *
+  - cron: '7 4 * * *'
   workflow_dispatch: null
