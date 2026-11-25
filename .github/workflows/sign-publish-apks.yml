@@ -236,6 +236,12 @@ jobs:
         fi
         # New commit-specific assets leave the previous working pair intact on failure.
         gh release upload "$RELEASE_TAG" "signed/aaps-${ASSET_TAG}.apk" "signed/aaps-wear-${ASSET_TAG}.apk" --repo "$GITHUB_REPOSITORY" --clobber
+        if [ "$ROLLING" = "true" ]; then
+          # GitHub shows a release's publication date, which only changes when it is
+          # published again; briefly turn the rolling release back into a draft so the
+          # date below reflects this build instead of the first publication.
+          gh release edit "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --draft=true
+        fi
         gh release edit "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --draft=false --latest=false \
           --title "$RELEASE_TITLE" --notes-file "$RUNNER_TEMP/release-notes.md"
     - name: Remove signing material
