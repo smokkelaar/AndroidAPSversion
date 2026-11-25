@@ -55,6 +55,8 @@ gh() {
         self.assertIn('aaps-wear-upstream-dev-' + 'b' * 40 + '.apk', calls)
         self.assertLess(calls.index('release upload'), calls.index('release edit'))
         self.assertIn('--notes-file', calls)
+        self.assertLess(calls.index('--draft=true'), calls.index('--draft=false'))
+        self.assertLess(calls.index('release upload'), calls.index('--draft=true'))
 
     def test_beta_rolling_release_is_updated_after_upload(self):
         result, calls = self.invoke(True, channel='v4.0.0-beta1')
